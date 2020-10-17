@@ -1,0 +1,1038 @@
+---
+title: "NYC Flights - Initial Cleaning and Investigation"
+author: "Me"
+date: "02/10/2020"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,cache = TRUE)
+```
+
+
+```{r}
+library(tidymodels)
+library(tidyverse)
+library(skimr)
+library(nycflights13)
+library(timeDate)
+library(lubridate)
+library(maps)
+library(patchwork)
+library(corrplot)
+library(GGally)
+library(rpart.plot)
+library(vip)
+
+theme_set(theme_bw())
+
+```
+
+
+Here we will look at the NYC flight data from the `nycflights13` package. The problem to investigate is to come up with a model that can predict when a flight's arrival time will be delayed.
+
+# Data
+
+## Flights Data
+
+
+```{r}
+skim(flights)
+```
+
+Let's look at the NA value
+```{r}
+flights %>%
+  filter ( is.na(arr_delay)   )
+```
+
+It appears there are many flights with missing data on the flight arrival times. We will omit these entires. But there are methods that can be used to impute missing values.
+
+
+
+## Airports Data
+
+Let's look at the airports
+
+```{r}
+skim(airports)
+```
+
+```{r}
+airports %>%
+  filter ( is.na(tzone)   )
+```
+
+It is mostly complete, we are just missing the timezones for three airports
+
+We mostly have airports in the US, with some in Asia
+
+```{r}
+
+world <- map_data("world")
+ggplot() +
+  geom_map(data = world, map = world,aes(x=long,y=lat,map_id = region),color = "black", fill = "lightgray")+
+  geom_point(data=airports,mapping=aes(x=lon,y=lat,col=alt))+
+  scale_colour_viridis_c(option="C")+
+  theme_dark()
+```
+
+We mostly have airports in the US, with some in Asia, though we notice that there is a supposed destination in the middle of the Barents Sea, North of Russia!
+
+
+Filtered flights with missing longitudes and latitudes
+```{r}
+flights %>%
+  filter ( !is.na(arr_delay) )%>%
+    left_join(airports,by=c("dest"="faa"))%>%
+  filter(is.na(lon) & is.na(lat) )%>%
+  count(dest)
+```
+We can manually add in these missing values
+
+
+```{r}
+flights %>%
+  filter ( !is.na(arr_delay) )%>%
+    left_join(airports,by=c("dest"="faa")) %>%
+  mutate( tzone = factor(tzone)) %>%
+  group_by(tzone)%>%
+  count()
+```
+We see most flights are to airports in New York, about 701 end up in the Pacific.
+
+
+## Weather Data
+
+```{r}
+skim(weather)
+```
+We appear to be missing lots of data `wind_gust`, so we will remove that.
+
+```{r}
+weather %>%
+  filter(!is.na(wind_dir))%>%
+  group_by(origin,month)%>%
+  summarise(avg_wind_dir = mean(wind_dir),avg_wind_speed=mean(wind_speed),.groups="keep") %>%
+  left_join(airports,by=c("origin"="faa")) %>%
+  ggplot(aes(x=month,y=avg_wind_dir,col=origin))+
+  geom_point()+
+  geom_line()
+```
+
+
+```{r}
+weather %>%
+  filter(!is.na(wind_dir))%>%
+  group_by(origin,month)%>%
+  summarise(avg_wind_dir = mean(wind_dir),avg_wind_speed=mean(wind_speed),.groups="keep") %>%
+  left_join(airports,by=c("origin"="faa")) %>%
+  ggplot(aes(x=month,y=avg_wind_speed,col=origin))+
+  geom_point()+
+  geom_line()
+```
+
+
+Average wind angle by month
+```{r}
+weather %>%
+  filter(!is.na(wind_dir))%>%
+  mutate(month=factor(month))%>%
+  #group_by(origin)%>%
+  #summarise(avg_wind_dir = mean(wind_dir),avg_wind_speed=mean(wind_speed)) %>%
+  left_join(airports,by=c("origin"="faa")) %>%
+  ggplot(aes(x=month,y=wind_dir,fill=origin))+
+  geom_boxplot()+
+  facet_wrap(.~origin,nrow=3)+
+  labs(title="Wind Direction By Month",x="Month",y="Degree (°)")
+```
+
+Average wind speed
+
+```{r}
+weather %>%
+  filter(!is.na(wind_dir))%>%
+  mutate(month=factor(month))%>%
+  #group_by(origin)%>%
+  #summarise(avg_wind_dir = mean(wind_dir),avg_wind_speed=mean(wind_speed)) %>%
+  left_join(airports,by=c("origin"="faa")) %>%
+  ggplot(aes(x=month,y=wind_speed,fill=origin))+
+  geom_boxplot()+
+  facet_wrap(.~origin,nrow=3)
+```
+
+We notice a clear outlier! There was a wind speed recorded in excess of 1000mph! The highest wind speed ever recorded  was 253 mph during severe
+hurricane conditions. During the time period around which the observation was taken and between the different weather stations, there are no
+recorded observations that match with the events that this outlier is seemingly trying to suggest.
+
+
+```{r}
+weather %>%
+ #filter(origin=="EWR",month==2,day==12)
+filter(month==2,day==12,hour==3)
+  #arrange(desc(wind_speed))
+```
+
+```{r}
+weather %>%
+ filter(month==2,day==12,hour %in% c(2:4))
+```
+
+Replace value here
+
+
+```{r}
+weather %>%
+  filter( wind_speed < 1000   )%>%
+  mutate(month=factor(month))%>%
+  #group_by(origin)%>%
+  #summarise(avg_wind_dir = mean(wind_dir),avg_wind_speed=mean(wind_speed)) %>%
+  left_join(airports,by=c("origin"="faa")) %>%
+  ggplot(aes(x=month,y=wind_speed,fill=origin))+
+  geom_boxplot()+
+  facet_wrap(.~origin,nrow=3)
+```
+```{r}
+weather %>%
+  filter( wind_speed < 1000   )%>%
+  mutate(hour=factor(hour))%>%
+  #group_by(origin)%>%
+  #summarise(avg_wind_dir = mean(wind_dir),avg_wind_speed=mean(wind_speed)) %>%
+  left_join(airports,by=c("origin"="faa")) %>%
+  ggplot(aes(x=hour,y=wind_speed,fill=origin))+
+  geom_boxplot()+
+  facet_wrap(.~origin,nrow=3)
+```
+```{r}
+weather %>%
+  filter(origin =="LGA", wind_speed < 1000   )%>%
+  mutate(hour=factor(hour),
+         month=factor(month))%>%
+  #group_by(origin)%>%
+  #summarise(avg_wind_dir = mean(wind_dir),avg_wind_speed=mean(wind_speed)) %>%
+  left_join(airports,by=c("origin"="faa")) %>%
+  ggplot(aes(x=hour,y=wind_speed,fill=origin))+
+  geom_boxplot()+
+  facet_wrap(month~.,nrow=3)
+```
+
+## Planes Data
+
+```{r}
+skim(planes)
+```
+We are missing the year of manufacuring for our flights. We could include a variable that denotes where a plane has an unknown year of manufacturing.
+
+```{r}
+planes %>%
+  count(type)
+```
+
+```{r}
+planes %>%
+  count(model)%>%
+  arrange(desc(n))
+```
+
+```{r}
+planes %>%
+  count(engine)
+```
+
+```{r}
+planes %>%
+  mutate(across(where(is.character), as.factor)) %>%
+  skim()
+```
+```{r}
+planes %>%
+  mutate(across(where(is.character), as.factor)) %>%
+  ggplot(aes(x=year,y=seats,col=engine))+
+  geom_point(size=3,alpha=.2)
+
+```
+```{r}
+planes %>%
+  count(engines)
+```
+
+# Creating the Full data set
+
+
+
+We first filter out flights that do not have any values for `arr_delay`
+
+```{r}
+flights_delay = flights %>%
+  filter( !is.na(arr_delay)) %>%
+  mutate( is_late = factor(ifelse( arr_delay >30,1,0)))%>%
+  mutate_if(is.character,as.factor)%>%
+  select(-dep_time,-sched_dep_time,-arr_time,-sched_arr_time,-air_time,-arr_delay)
+```
+
+```{r}
+skim(flights_delay)
+```
+
+
+
+```{r}
+flights_delay %>%
+  count(is_late,name="Count") %>%
+  mutate(prop_n=Count/sum(Count))
+```
+
+We see that we have an unequal class balance with about 84% of flights not arriving late, and 16% of flights arriving later than 30 minutes.
+
+Let's join with weather.
+
+```{r}
+my_weather = weather %>%
+  select(-wind_gust,-year,-month,-day,-hour) %>%
+  mutate(wind_speed =  replace(wind_speed, wind_speed>1000, 16.11092))# Replace the outlier with the readings from the other weather stations
+
+skim(my_weather)
+```
+
+```{r}
+airports
+```
+
+```{r}
+flights_delay %>%
+  count(dest,sort = TRUE)
+```
+
+
+
+```{r}
+flights %>%
+  filter ( !is.na(arr_delay) )%>%
+    left_join(airports,by=c("dest"="faa"))%>%
+  filter(is.na(lon) & is.na(lat) )%>%
+  count(dest)
+```
+
+
+
+
+
+```{r}
+world <- map_data("world")
+ggplot() +
+  geom_map(data = world, map = world,aes(x=long,y=lat,map_id = region),color = "black", fill = "lightgray")+
+  geom_point(data=airports,mapping=aes(x=lon,y=lat,col=tzone))+
+  labs(title="Timezones of Airports")
+  #scale_colour_viridis_c(option="C")+
+  #theme_dark()
+
+
+```
+We switch the longitudes and latitude values for the EEN airport and add the timezone
+
+
+```{r}
+
+
+airports$lat[airports$faa=="EEN"] = 42.89833	
+airports$lon[airports$faa=="EEN"] = -72.27083	
+
+airports$tzone[airports$faa=="EEN"] = "America/New_York"
+airports$tzone[airports$faa=="LRO"] = "America/New_York"	
+airports$tzone[airports$faa=="YAK"] ="America/Anchorage"
+
+airports %>%
+  filter(faa %in% c("EEN","LRO","YAK"))
+```
+
+
+
+
+
+
+Add a long lat and alt for SJU, BWN, STT
+
+```{r}
+
+new_airports = tibble(faa = c("BQN","PSE","SJU","STT"), 
+                      name=NA, 
+                      lat=c(18.494833,18.008333,18.439167,18.337222), 
+                      lon=c( -67.129500,-66.563056,-66.001944,-64.973333),
+                      alt =c(72,9,3,7),
+                      tz = NA,
+                      tzone="PeurtoRico")
+
+
+
+full_airports = airports %>%
+  bind_rows(new_airports)
+```
+
+
+# Joining all data
+
+Join flights with weather
+
+
+
+```{r}
+flights_joined = flights_delay %>%
+  inner_join(my_weather, by=c("origin","time_hour"))
+
+skim(flights_joined)
+```
+
+We join the plane data
+
+```{r}
+my_planes= planes %>%
+  rename(mnfr_year = year)%>%
+  select(-speed)
+```
+
+
+```{r}
+
+flights_joined =  flights_joined%>%
+  inner_join(my_planes,by="tailnum")
+
+skim(flights_joined)
+```
+
+And finally, we join the destination data
+
+```{r}
+full_airports = full_airports %>%
+  select(-tz,-dst)
+```
+
+
+
+```{r}
+flights_joined = flights_joined %>%
+  inner_join(full_airports,by=c("dest"="faa"))
+
+
+skim(flights_joined)
+```
+
+```{r}
+flights_joined = flights_joined %>%
+  mutate_if(is.character,as.factor)%>%
+  mutate(engines = factor(engines))%>%
+  rename(engine_type = engine)
+
+skim(flights_joined)
+```
+
+Next step. Perform EDA and find what variable contribute to a flight arriving late.
+
+# EDA
+
+
+
+```{r}
+flights_joined %>%
+  group_by(is_late) %>%
+  count()%>%
+  ungroup()%>%
+  mutate( prop = n/sum(n)) #%>% pull()
+
+```
+We see that about 15.9% of all flights are classes as being late. 
+
+
+We will drop the manufacturer and name
+```{r}
+flights_joined %>%
+  count(manufacturer,sort = TRUE)
+
+```
+
+Is there any associate with carrier and a plane being late?
+
+
+
+
+
+```{r}
+
+flights_joined %>%  
+  mutate(carrier =  fct_reorder(.f=carrier,
+                                .x=is_late,
+                                .fun=function(.x) mean(.x=="1"),
+                                .desc=FALSE)) %>%
+  ggplot(aes(x=carrier,fill=is_late))+
+  geom_bar(position="fill",alpha=0.8)+
+  geom_hline(yintercept = 0.1586697,lty=2,size=1.5,col="black")+
+  annotate(geom="label",x=4, y=0.25,label="Average Late %",size=6)+
+  labs(title="Proportion of Flights by Carrier Classed by Lateness",y="Proportion of Flights",fill="Is Late?")
+```
+We see that Hawaiian Airlines does the best by having the fewest proportion of flights being late, and Frontier Airlines does the worst by having the highest proportions of it's flight as late.
+
+
+Let's see if flights are more likely to be late depending on the origin
+
+```{r}
+flights_joined %>%
+  #filter(is_late==1)%>%
+  group_by(origin,is_late)%>%
+  count()%>%
+  ungroup(is_late)%>%
+  mutate(prop=n/sum(n))%>%
+  filter(is_late==1)%>%
+  ggplot(aes(x=origin,y=prop,fill=origin))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=  paste0(signif(prop*100,3),"%")),vjust=-0.25)+
+  labs(title="Percentage of Flights that are Late by Origin",x="Origin",y=NULL)+
+  scale_y_continuous(labels = label_percent())
+```
+We see that flights departing from  EWR tend to have a higher chance of arriving late.
+
+
+```{r}
+flights_joined %>%
+  group_by(origin)%>%
+  count(is_late) %>%
+  ungroup(is_late)%>%
+  mutate(prop=n/sum(n))%>%
+  ungroup()%>%
+  filter(is_late==1)%>%
+  select(origin,n,prop)
+```
+
+Let's look that the type of aircraft
+```{r}
+flights_joined %>%
+  group_by(type)%>%
+  count(is_late) %>%
+  ungroup(is_late)%>%
+  mutate(prop=n/sum(n))%>%
+  ungroup()%>%
+  filter(is_late==1)%>%
+  select(type,n,prop)
+```
+It appears that engine type does not affect whether the flight will arrive late or not.
+
+
+```{r}
+flights_joined %>%
+  #filter(is_late==1)%>%
+  group_by(engines,is_late)%>%
+  count()%>%
+  ungroup(is_late)%>%
+  mutate(prop=n/sum(n))%>%
+  filter(is_late==1)%>%
+  ggplot(aes(x=engines,y=prop,fill=engines))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=  paste0(signif(prop*100,3),"%")),vjust=-0.25)+
+  labs(title="Percentage of Flights that are Late by Number of Engines",x="Engine",y=NULL,fill=NULL)+
+  scale_y_continuous(labels = label_percent())
+```
+
+
+
+```{r}
+flights_joined %>%
+  count(engine_type) %>%
+  ggplot(aes(y=   fct_reorder(engine_type,n),x=n,fill=engine_type ))+
+  geom_col(show.legend = T)+
+  geom_text(aes(label=n),hjust=-.1)+
+  labs(title="Number of Engine Type",y="Engine Type",x="Count")+
+  xlim(0,250000)
+```
+```{r}
+flights_joined %>%
+  group_by(engine_type)%>%
+  count(is_late) %>%
+  ungroup(is_late)%>%
+  mutate(prop=n/sum(n))%>%
+  ungroup()%>%
+  filter(is_late==1)%>%
+  select(engine_type,n,prop)%>%
+  ggplot(aes(x=engine_type,y=prop,fill=engine_type))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=  paste0(signif(prop*100,3),"%")),vjust=-0.25)+
+  labs(title="Percentage of Flights that are Late by Engine Type",x="Engine Type",y=NULL,fill=NULL)+
+  scale_y_continuous(labels = label_percent())
+```
+
+
+```{r}
+flights_joined %>%
+  mutate(counted =     fct_lump_prop(engine_type,prop=0.01))%>%
+  count(counted)%>%
+  ggplot(aes(y= fct_reorder(counted,n),x=n,fill=counted))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=n),hjust=-.1)+
+  xlim(0,250000)+
+  labs(title="Count of Engine Type",subtitle="Types that appeared less than 1% of all types were filled to other",x="Count",y="Engine Type")
+
+```
+
+```{r}
+flights_joined %>%
+  mutate(counted =  fct_lump_prop(engine_type,prop=0.01))%>%
+  group_by(counted)%>%
+  count(is_late) %>%
+  ungroup(is_late)%>%
+  mutate(prop=n/sum(n))%>%
+  ungroup()%>%
+  filter(is_late==1)%>%
+  select(counted,n,prop)%>%
+  ggplot(aes(x=counted,y=prop,fill=counted))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=  paste0(signif(prop*100,3),"%")),vjust=-0.25)+
+  labs(title="Percentage of Flights that are Late by Engine Type",x="Engine Type",y=NULL,fill=NULL)+
+  scale_y_continuous(labels = label_percent())
+
+
+```
+
+```{r}
+flights_joined %>%
+  #mutate(counted =     fct_lump_prop(engine_type,prop=0.01))%>%
+  mutate(counted = tzone)%>%
+  count(counted)%>%
+  ggplot(aes(y= fct_reorder(counted,n),x=n,fill=counted))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=n),hjust=-.1)+
+  xlim(0,175000)+
+  labs(title="Count of flights to Timezones",x="Count",y="Timezone")
+```
+It appears that it is important to not factor lump the variables for `tzone`, since there is an affect on them.
+```{r}
+flights_joined %>%
+  mutate(counted =  fct_lump_prop(tzone,prop=0.01))%>%
+  group_by(counted)%>%
+  count(is_late) %>%
+  ungroup(is_late)%>%
+  mutate(prop=n/sum(n))%>%
+  ungroup()%>%
+  filter(is_late==1)%>%
+  select(counted,n,prop)%>%
+  ggplot(aes(y=counted,x=prop,fill=counted))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=  paste0(signif(prop*100,3),"%")),hjust=-0.1)+
+  labs(title="Percentage of Flights that are Late by Engine Type",y="Engine Type",x=NULL,fill=NULL)+
+  scale_x_continuous(labels = label_percent(),limits=c(0,0.19))
+
+```
+```{r}
+flights_joined %>%
+  #mutate(counted =  fct_lump_prop(tzone,prop=0.01))%>%
+  mutate(counted = tzone) %>%
+  group_by(counted)%>%
+  count(is_late) %>%
+  ungroup(is_late)%>%
+  mutate(prop=n/sum(n))%>%
+  ungroup()%>%
+  filter(is_late==1)%>%
+  select(counted,n,prop)%>%
+  ggplot(aes(y=counted,x=prop,fill=counted))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=  paste0(signif(prop*100,3),"%")),hjust=-0.1)+
+  labs(title="Percentage of Flights that are Late by Timezone Destination",y="Timezone Destination",x=NULL,fill=NULL)+
+  scale_x_continuous(labels = label_percent(),limits=c(0,0.19))
+
+```
+
+```{r}
+ggplot(flights_joined,aes(x=lat,fill=is_late))+
+  geom_density(alpha=0.4)+ 
+  #geom_histogram()+
+ labs(title="Density of Flights Being On Time or Late, by Latitude",x="Latitiude",y="Density",fill="Is Late")
+```
+
+
+```{r}
+ggplot(flights_joined,aes(x=lon,fill=is_late))+
+  geom_density(alpha=0.4)+
+   labs(title="Density of Flights Being On Time or Late, by Longitude",x="Longitude",y="Density",fill="Is Late")
+```
+
+```{r}
+ggplot(flights_joined,aes(x=alt,fill=is_late))+
+  geom_density(alpha=0.4)+
+   labs(title="Density of Flights Being On Time or Late, by Altitude",x="Altitude",y="Density",fill="Is Late")
+```
+There doesn't seem to be a relationship between the location and if a flight is late or not.
+
+Next look at the time, hour, minute, hour, day, month. Heatmap of lates over the year? Find any that there abnormally high?
+
+```{r}
+p1 <- flights_joined %>% 
+  count(minute) %>%
+  ggplot(aes(x=minute,y=n))+
+  geom_point()+
+  geom_line()+
+  labs(title="Number of Flights for Minute of Hour",x="Minute of Hour",y="Count")+
+  scale_y_continuous(labels = scales::comma)
+
+
+p2 <- flights_joined %>% 
+  group_by(minute)%>%
+  count(is_late) %>%
+  mutate(prop = n/sum(n)) %>%
+  filter(is_late==1)%>%
+  ggplot(aes(x=minute,y=prop))+
+  geom_point(col="steelblue4")+
+  geom_line(col="steelblue4")+
+  labs(title="Percentage of Flights that are Late by Minute of Hour",x="Minute of Hour",y="Percentage")+
+  #geom_smooth(col="red", se=FALSE)+
+      scale_y_continuous(labels=label_percent(),limits=c(0,0.25))
+
+p1 / p2
+```
+
+```{r}
+p1 <-flights_joined %>% 
+  count(hour) %>%
+  ggplot(aes(x=hour,y=n))+
+  geom_point()+
+  geom_line()+
+  labs(title="Number of Flights By Hour of Day",x="Hour",y="Count")+
+  scale_y_continuous(labels = scales::comma)
+
+
+p2 <- flights_joined %>% 
+  group_by(hour)%>%
+  count(is_late) %>%
+  mutate(prop = n/sum(n)) %>%
+  filter(is_late==1)%>%
+  ggplot(aes(x=hour,y=prop))+
+  geom_point(col="aquamarine3")+
+  geom_line(col="aquamarine3")+
+  labs(title="Percenetage of Flights that are Late by Hour of Day",x="Hour of Day",y="Percentage")+
+    scale_y_continuous(labels=label_percent(),limits=c(0,0.3))
+
+p1 / p2 
+```
+It appears that the later the flight in a day, the more likely it is more the plane will be late.
+
+
+```{r}
+p1 <-flights_joined %>% 
+  mutate(mymonth = month(date(time_hour),label=TRUE) )%>%
+  group_by(mymonth)%>%
+  count() %>%
+  ggplot(aes(x=mymonth,y=n,group=1))+
+  geom_point()+
+  geom_line()+
+  labs(title="Number of Flights By Month",x="Month",y="Count")+
+  scale_y_continuous(labels = scales::comma)
+
+p2 <- flights_joined %>% 
+  #mutate(mymonth = month(date(time_hour)) )%>%
+  mutate(mymonth = month(date(time_hour),label=TRUE) )%>%
+  group_by(mymonth)%>%
+  count(is_late) %>%
+  mutate(prop = n/sum(n)) %>%
+  filter(is_late==1)%>%
+  ungroup()%>%
+  ggplot(aes(x=mymonth,y=prop,group=1))+
+  geom_point(col="orangered1")+
+  geom_line(col="orangered1")+
+  labs(title="Percentage of Flights that are Late by Month",x="Month",y="Percentage")+
+  scale_y_continuous(labels=label_percent())
+
+p1 / p2
+```
+February generally sees fewer flights, but this may also be due to the fact it is the shortest month of the year.
+
+
+We see that some months have different proportions of flights being late. Most notably,  June and July have 25% of their flights arriving late, while during the months of: September, October, and November all have less than 10% of their flights being late.
+
+```{r}
+flights_joined %>%
+  group_by(month,day)%>%
+  count()%>%
+  ggplot(aes(x=day,y=n))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(.~month)+
+  labs(title="Total Number of Flights by Day and Month",x="Day",y="Count")
+```
+We can observe the number of flights across the year. We see that on weekdays, there are around 800 flights a day, while on Sunday, there are about 600 flights a day. We also observe a sharp decrease in the number of flights during the 8th-9th February, further research shows that this was the day where New York was struck by a large blizzard, thereby severely restricting the number of flights.
+
+We also see a regular dip every seven days, this is when the flights are on a Sunday.
+
+
+
+```{r}
+flights_joined %>%
+  mutate(mymonth = month(date(time_hour),label=TRUE,abbr = FALSE)) %>%
+  group_by(mymonth,day)%>%
+  count(is_late) %>%
+  mutate(prop = n/sum(n))%>%
+  filter(is_late==1)%>%
+  ungroup()%>%
+  ggplot( aes(x=day,y=prop))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(.~mymonth)+
+  theme(strip.background = element_blank(),
+        panel.border = element_blank())+
+  theme_bw()
+```
+
+We see a noticeable day where the proprotion of flights being late was quiet late. This occurred on the 8th March and searching the web shows us that snow fell on New York on that day.
+
+
+
+
+
+```{r}
+p1 <- flights_joined %>% 
+  ggplot(aes(time_hour)) + 
+  geom_freqpoly(binwidth = 86400)+
+  #scale_x_datetime(date_breaks="1 month",date_labels = "%b%y",minor_breaks=NULL)
+  scale_x_datetime(date_breaks = "month", labels = label_date_short(),minor_breaks=NULL)+
+    labs(title="Number of Flights by  Day of Year",x="Date",y="Flights Delayed")
+
+p2 <- flights_joined %>% 
+  mutate (  mydate = date(time_hour) )%>%
+  group_by(mydate)%>%
+  count(is_late) %>%
+  mutate(prop = n/sum(n))%>%
+  filter(is_late==1)%>%
+  ggplot(aes(x=mydate,y=prop)) + 
+  geom_line()+
+  #geom_smooth(col="red3",method="loess",formula =  y~x)+
+  scale_x_date(date_breaks = "month", labels = label_date_short(),minor_breaks=NULL)+
+  scale_y_continuous(labels = label_percent())+
+  labs(title="Percent of Flights Delayed by Day of Year",x="Date",y="Flights Delayed")
+  
+p1/p2
+```
+
+
+
+We will now look at weather
+
+temp dewp humid wind_dir wind_speed precip pressure visib
+
+```{r}
+p1 <- flights_joined %>%
+  ggplot(aes(x=temp,fill=is_late))+
+  geom_density(alpha=0.5)
+
+p2 <- flights_joined %>%
+  ggplot(aes(x=dewp,fill=is_late))+
+  geom_density(alpha=0.5)
+
+p3 <- flights_joined %>%
+  ggplot(aes(x=humid,fill=is_late))+
+  geom_density(alpha=0.5)
+
+
+p4 <- flights_joined %>%
+  mutate(rain = case_when(precip > 0  & precip < 0.25   ~ "Light_Precip",
+                          precip >= 0.25 ~ "Heavy_Precip",
+                          TRUE  ~ "No_Precip"
+                          )) %>%
+  ggplot(aes(x=rain,fill=is_late))+
+  geom_bar(position = position_fill(),show.legend = FALSE)
+
+
+p1 + p2 + p3 + p4 +  plot_layout(ncol=2,guides = 'collect')+ 
+  plot_annotation(title = "Weather Effects on Flight Punctuality")
+```
+
+We see that when the temperatures are high, there are more instances of planes being late.
+
+A higher dew point means the more water is in the atmosphere, which means it's harder for the human body to evaporate heat. A higher humidity also leads to there being more 
+
+```{r}
+p1<-flights_joined %>%
+  ggplot(aes(y=wind_speed,x=is_late,fill=is_late))+
+ # geom_density(alpha=0.5)
+  geom_violin(draw_quantiles= c(0.25,0.5,0.75))
+
+p2 <-flights_joined %>%
+  ggplot(aes(x=wind_dir,fill=is_late))+
+  geom_density(alpha=0.5)
+
+p1 + p2 + plot_layout(guides="collect")+plot_annotation(title = "Wind Speed and Wind Direction")
+```
+
+```{r}
+
+flights_joined %>%
+  #filter(visib <10) %>%
+  ggplot(aes(x=visib,fill=is_late))+
+  geom_density(alpha=0.5)+
+  labs(title="Visibility Effects on Lateness")
+```
+
+We could have two different weather patterns? Good visibility and poor visibility on other days.
+
+
+```{r}
+
+
+ cor(flights_joined[c("temp","dewp","humid","precip","visib")],use = "complete.obs") %>%
+  corrplot(addCoef.col = "black", number.digits = 2,title = " Weather Correlation Plot", mar = c(0,0,4,0))
+```
+```{r}
+#flights_joined[c("temp","dewp","humid","precip","visib","is_late")] %>%
+#ggpairs(mapping = aes(color = is_late),columns=c("temp","dewp","humid","precip","visib"))
+```
+
+We will remove `dewp` since it is highly correlated with `temp`.
+
+
+```{r}
+ cor(flights_joined[c("temp","dewp","humid","precip","visib","month","hour","lat","lon","alt")],use = "complete.obs") %>%
+  corrplot(addCoef.col = "black", number.digits = 2,title = " Weather, Time, and Location Correlation Plot", mar = c(0,0,2,0))
+```
+We don't see any linear correlation between these variables such as, weather effects and time or location. We will still drop longitude, latitude, and altitude.
+
+
+We look at engine type
+```{r}
+flights_joined %>%
+  count(engines) %>%
+  mutate(prop = n/sum(n)*100 )
+
+
+
+flights_joined %>%
+  mutate(  engines =   fct_lump_prop(engines,prop=0.01) )%>%
+  group_by(engines) %>%
+   count(is_late) %>%
+  ungroup(is_late)%>%
+  mutate(prop=n/sum(n))%>%
+  ungroup()%>%
+  filter(is_late==1)
+  
+```
+
+We see that engine size does not make a difference if a plane is late or not
+
+```{r}
+flights_joined %>%
+  ggplot(aes(x=seats,fill=is_late))+
+  geom_density(alpha=0.5)
+```
+
+
+We see that for flights with over 100 seats or fewer than 25, these flights tend to more likely be on time than flights with around 25 to 100 seats.
+
+
+```{r}
+flights_joined %>%
+   mutate(   mnfr_year =  as.factor(mnfr_year %/% 5 * 5) ) %>%
+   mutate( mnfr_year  = fct_lump_prop(as.factor(mnfr_year), prop=0.01)) %>%
+  count(mnfr_year)%>%
+  ggplot(aes(x=mnfr_year,y=n))+
+  geom_hline(yintercept = 2777,lty=2,col="red")+ # 1% line
+  geom_col()+
+  labs(title="Count of Engines Manufactured by Year")
+```
+
+
+
+```{r}
+flights_joined %>%
+  #mutate( mnfr_year = as.factor(mnfr_year)) %>%
+  # mutate( mnfr_year  = fct_lump_prop(as.factor(mnfr_year), prop=0.01)) %>%
+    mutate(   mnfr_year =  as.factor((mnfr_year %/% 5) * 5) ) %>%
+  mutate( mnfr_year  = fct_lump_prop(as.factor(mnfr_year), prop=0.01)) %>%
+  group_by(mnfr_year)%>%
+  count(is_late) %>%
+  ungroup(is_late)%>%
+  mutate(prop=n/sum(n))%>%
+  ungroup()%>%
+  filter(is_late==1)%>%
+
+ggplot(aes(x=mnfr_year,y=prop))+
+  geom_col()+
+  geom_text(aes(label=  paste0(signif(prop*100,3),"%"), vjust=-.1  ))+
+  scale_y_continuous(labels = label_percent() )+
+  geom_hline(yintercept = 0.159,col="red",lty=2)+
+  labs(title="Percent of Engine Manufacturing Being Late by Year")
+```
+
+
+```{r}
+flights_joined %>%
+  ggplot(aes(x=dep_delay,fill=is_late))+
+  geom_density(alpha=0.5)
+```
+```{r}
+summary(flights_joined$type)
+
+```
+
+
+
+
+
+
+
+# Final model set
+
+We will finally create the dataset for modelling, as well as any changes to be made.
+
+* `carrier` will be kept
+
+* `tailnum` will be used as an id
+
+* `origin` will be kept
+
+* `dest` will be kept as id
+
+* `engine` type will be have it's factors lumped
+
+* `manufacturer` will be kept as id
+
+* `model` will be used as id 
+
+* `engines` will be removed 
+
+* `engine_type` will have it's factors lumped
+
+* `name` will be removed 
+
+* `tzone` will have it's factors lumped
+
+* `year`, `month`, `day`, `hour`,`minute` will be dropped.  
+
+* `distance` will be dropped.
+
+* `temp` , `humid`, `precip` and `visib` will be included.
+
+* `mnfr_year` will be binned into 5 year bins, and then factor lumped.
+
+* `type` will be dropped.
+
+
+```{r}
+skim(flights_joined)
+```
+
+```{r}
+full_flights = 
+flights_joined %>%
+  na.omit() %>%
+  select(-year,-month,-day,-hour,-minute,-type,-manufacturer,-model,-engines,-distance,-dewp,-name,-pressure,-dest,-wind_dir,-wind_speed,-humid) %>%
+  mutate(   mnfr_year =  as.factor( (mnfr_year %/% 5) * 5),
+            mnfr_year  = fct_lump_prop(as.factor(mnfr_year), prop=0.01 ),
+            engine_type = fct_lump_prop(engine_type, prop=0.01),
+            tzone = fct_lump_prop(tzone, prop=0.01),
+            dep_date = as.Date(time_hour)
+            )
+
+saveRDS(full_flights,file="Cleaned_Full_Flights.rds")
+```
+
+
+```{r}
+skim(full_flights)
+```
+

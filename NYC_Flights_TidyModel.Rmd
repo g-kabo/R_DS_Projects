@@ -1,0 +1,645 @@
+---
+title: "US_Flights_Model"
+author: "Me"
+date: "14/10/2020"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+
+This is a continuation of working on the NYC Flight Data for the year 2013. The aim is create a model that can predict whether or not a flight will be 30 minutes late, given a set of parameters.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,cache = TRUE)
+
+```
+
+```{r results='hide'}
+library(tidymodels)
+library(tidyverse)
+library(skimr)
+library(nycflights13)
+library(timeDate)
+library(lubridate)
+library(maps)
+library(patchwork)
+library(corrplot)
+library(GGally)
+library(rpart.plot)
+library(vip)
+
+theme_set(theme_bw())
+```
+
+
+
+
+# Splitting the data
+
+```{r}
+full_flights=readRDS("Cleaned_Full_Flights.rds") 
+```
+
+
+
+```{r}
+new_full_flights = 
+full_flights %>%
+  select(-tailnum,-flight,-time_hour)  #This would've been used as ID to investigate the wrong cases
+```
+
+```{r}
+skim(new_full_flights)
+```
+
+
+```{r}
+
+set.seed(4321)
+flights_split = initial_split(new_full_flights, prop = 0.7, strata = is_late)
+
+flights_train = training(flights_split)
+flights_test = testing(flights_split)
+
+
+```
+
+
+# Create a recipe
+
+```{r}
+
+flights_rec =
+  recipe(is_late ~ .,data=flights_train ) %>%
+  #step_knnimpute(all_predictors()) %>%
+  #update_role(flight, tailnum, time_hour, new_role="ID")%>%
+  step_date(dep_date, features = c("dow", "month")) %>% 
+  step_holiday( dep_date, holidays = timeDate::listHolidays() %>% str_subset("(^US)|(Easter)") ) %>%
+  step_rm(dep_date) %>% 
+  step_dummy(all_nominal(),-all_outcomes()) %>%
+  step_zv(all_predictors())
+
+
+tree_rec = 
+  recipe(is_late ~.,data=flights_train) %>%
+  #update_role(flight, tailnum, time_hour, new_role ="ID") %>%
+  step_zv(all_predictors())
+  
+
+
+```
+
+#  Fit a model with a recipe
+
+```{r}
+logist_mod = logistic_reg() %>%
+  set_engine("glm")
+
+tree_mod = decision_tree(cost_complexity = tune(), 
+                         tree_depth = tune()
+                         ) %>%
+  set_engine("rpart") %>% 
+  set_mode("classification")
+
+```
+
+
+## Tree Grid Search 
+
+```{r}
+set.seed(512)
+tree_params = grid_max_entropy(cost_complexity(),tree_depth(range = c(3,5)),size=9)
+
+```
+
+```{r}
+set.seed(512)
+grid_max_entropy(cost_complexity(),tree_depth(range = c(3,5)),size=9) %>%
+  ggplot(aes(tree_depth,log(cost_complexity)))+
+  geom_point()+
+  theme_bw()
+```
+
+
+
+Now we tune using resamples
+
+```{r}
+
+doParallel::registerDoParallel()
+
+Start = Sys.time()
+
+set.seed(234)
+
+flights_folds = vfold_cv(flights_train, v=5, strata = is_late) 
+
+
+set.seed(345)
+
+tree_wf = workflow() %>%
+  add_model(tree_mod) %>%
+  add_recipe(tree_rec)
+
+
+tree_res = tree_wf %>% 
+  tune_grid( resamples = flights_folds,
+             grid=tree_params)
+End = Sys.time()
+
+doParallel::stopImplicitCluster()
+
+paste("Time Taken:",End-Start)
+
+```
+
+```{r}
+tree_res %>%
+  collect_metrics() %>%
+  mutate(tree_depth = factor(tree_depth)) %>%
+  ggplot(aes(x=cost_complexity,y=mean,color=tree_depth))+
+  geom_line(size=1.5,alpha=0.6)+
+  geom_point(size=2)+
+  facet_wrap(~.metric, scales="free",nrow=2)+
+  scale_x_log10(labels=label_number())+
+  scale_color_viridis_d(option="C",begin=.9,end=0)+
+  theme_bw()
+```
+
+## Select Best Tree
+
+```{r}
+best_tree = tree_res %>%
+  select_best("roc_auc")
+```
+
+
+## Logistic Model
+
+Now we fit the logistic model
+
+```{r}
+logt_wf = workflow() %>%
+  add_model(logist_mod) %>%
+  add_recipe(flights_rec)
+
+logt_wf
+```
+
+```{r}
+logt_fit = fit(logt_wf, data = flights_train)
+```
+```{r}
+expo_coefs  = logt_fit %>%
+  pull_workflow_fit() %>%
+  tidy()
+
+test_expo_coefs = 
+  logt_fit %>%
+  pull_workflow_fit()%>%
+  tidy(exponentiate=TRUE) %>% 
+  mutate(conf_low = estimate - 1.96*std.error,
+         conf_high = estimate + 1.96*std.error,
+         #Significant =   if_else(p.value < 0.05 ,"True","False")
+         )
+   # tidy(conf.int=TRUE) 
+
+expo_coefs %>%
+  rmarkdown::paged_table()
+
+
+```
+
+
+We can also observe the odds ratio which tells us the relative risk of a fligtht being late when associated with either a unit change or factor change.
+
+```{r}
+test_expo_coefs %>%
+  select(term,estimate) %>%
+  rename(Odds_Ratio = estimate)%>%
+  rmarkdown::paged_table()
+```
+
+We can interpret this as a unit change in `dep_delay` is associated with a 10.8% increase in the odds of a flight being late. With factor variables, it is related to the change from the base level. If a factor is not significant, then it suggests that there is not enough evidence to say the two factors change the odds of a flight being late.
+
+
+```{r}
+
+
+expo_coefs %>%
+  filter( !str_starts(term,"dep|carrier|engine|tzone|origin|mnfr_year")) %>%
+  filter( !term == "(Intercept)") %>%
+  mutate( Significant =   if_else(p.value < 0.05 ,"True","False"))%>%
+  ggplot(aes(y=term,x=estimate,col=Significant))+
+  geom_point()+
+    geom_vline(xintercept = 0,col="grey80",lty=2,size=2)+
+  geom_errorbar(aes(xmin=estimate-1.96*std.error,
+                    xmax=estimate+1.96*std.error),width=0.5)+
+  labs(title="Log Odds Ratio",col="Significant at\n5% level")+
+  theme_bw()
+  
+```
+
+
+```{r}
+expo_coefs %>%
+  filter( str_starts(term,"carrier")) %>%
+  mutate( Significant =   if_else(p.value < 0.05 ,"True","False"))%>%
+  ggplot(aes(y=term,x=estimate,col=Significant))+
+  geom_vline(xintercept = 0,col="grey80",lty=2,size=2)+
+  geom_point()+
+  geom_errorbar(aes(xmin=estimate-1.96*std.error,
+                    xmax=estimate+1.96*std.error),width=0.5)+
+    labs(title="Log Odds of Carrier")+
+  theme_bw()
+  
+```
+
+
+
+
+```{r}
+test_expo_coefs %>%
+  filter( str_starts(term,"carrier")) %>%
+  mutate( Significant =   if_else(p.value < 0.05 ,"True","False"))%>%
+  ggplot(aes(y=term,x=estimate,col=Significant))+
+    geom_vline(xintercept = 1 ,col="grey80",lty=2,size=2)+
+  geom_point()+
+    geom_errorbar(aes(xmin=conf_low,
+                    xmax=conf_high),width=0.5)+
+    labs(title="Log Odds Ratio of Carrier")+
+   theme_bw()
+  
+```
+
+```{r}
+expo_coefs %>%
+  filter( str_starts(term,"dep_date_month")) %>%
+  mutate( Significant =   if_else(p.value < 0.05 ,"True","False"))%>%
+  mutate( term =  str_replace(term,"dep_date_month_","")) %>%
+  mutate( term = factor(term, 
+                        levels=c("Feb","Mar","Apr","May","Jun",
+                                 "Jul","Aug","Sep","Oct","Nov","Dec"))) %>%
+  ggplot(aes(y=term,x=estimate,col=Significant))+
+    geom_vline(xintercept = 0,col="grey80",lty=2,size=2)+
+  geom_point()+
+  geom_errorbar(aes(xmin=estimate-1.96*std.error,
+                    xmax=estimate+1.96*std.error),width=0.5)+
+  coord_flip()+
+  labs(title="Log Odds Ratio by Month")+
+   theme_bw()
+
+```
+
+
+```{r}
+test_expo_coefs %>%
+  filter( str_starts(term,"dep_date_month")) %>%
+  mutate( Significant =   if_else(p.value < 0.05 ,"True","False"))%>%
+  mutate( term =  str_replace(term,"dep_date_month_","")) %>%
+  mutate( term = factor(term, 
+                        levels=c("Feb","Mar","Apr","May","Jun",
+                                 "Jul","Aug","Sep","Oct","Nov","Dec"))) %>%
+  ggplot(aes(y=term,x=estimate,col=Significant))+
+    geom_vline(xintercept = 1,col="grey80",lty=2,size=2)+
+  geom_point()+
+  geom_errorbar(aes(xmin=exp(log(estimate)-1.96*(std.error)),
+                    xmax=exp(log(estimate)+1.96*(std.error))),width=0.5)+
+  coord_flip()+
+  labs(title="Odds Ratio by Month")+
+   theme_bw()
+```
+
+
+
+
+```{r}
+expo_coefs %>%
+  filter( str_starts(term,"dep_date_dow")) %>%
+  mutate( Significant =   if_else(p.value < 0.05 ,"True","False"))%>%
+  mutate( term =  str_replace(term,"dep_date_dow_","")) %>%
+  mutate( term = factor(term, 
+                        levels=c("Mon","Tue","Wed","Thu","Fri","Sat"))) %>%
+  ggplot(aes(y=term,x=estimate,col=Significant))+
+    geom_vline(xintercept = 0,col="grey80",lty=2,size=2)+
+  geom_point()+
+  geom_errorbar(aes(xmin=estimate-1.96*std.error,
+                    xmax=estimate+1.96*std.error),width=0.5)+
+  coord_flip()+
+  labs(title="Log Odds Ratio by Day of Week")+
+   theme_bw()
+```
+```{r}
+expo_coefs %>%
+  filter( str_starts(term,"mnfr_year")) %>%
+  mutate( Significant =   if_else(p.value < 0.05 ,"True","False"))%>%
+    mutate( term =  str_replace(term,"mnfr_year_","")) %>%
+  ggplot(aes(y=term,x=estimate,col=Significant))+
+  geom_vline(xintercept = 0,col="grey80",lty=2,size=2)+
+  geom_point()+
+  geom_errorbar(aes(xmin=estimate-1.96*std.error,
+                    xmax=estimate+1.96*std.error),width=0.5)+
+  labs(title="Log Odds Ratio by Engine Manufacturing Year")+
+   theme_bw()
+```
+
+```{r}
+expo_coefs %>%
+  filter( str_starts(term,"engine_type")) %>%
+  mutate( Significant =   if_else(p.value < 0.05 ,"True","False"))%>%
+    mutate( term =  str_replace(term,"engine_type_","")) %>%
+  ggplot(aes(y=term,x=estimate,col=Significant))+
+  geom_vline(xintercept = 0,col="grey80",lty=2,size=2)+
+  geom_point()+
+  geom_errorbar(aes(xmin=estimate-1.96*std.error,
+                    xmax=estimate+1.96*std.error),width=0.5)+
+  labs(title="Log Odds Ratio of Engine Type")+
+   theme_bw()
+```
+
+```{r}
+expo_coefs %>%
+  filter( str_starts(term,"tzone")) %>%
+  mutate( Significant =   if_else(p.value < 0.05 ,"True","False"))%>%
+    mutate( term =  str_replace(term,"engine_type_","")) %>%
+  ggplot(aes(y=term,x=estimate,col=Significant))+
+  geom_vline(xintercept = 0,col="grey80",lty=2,size=2)+
+  geom_point()+
+  geom_errorbar(aes(xmin=estimate-1.96*std.error,
+                    xmax=estimate+1.96*std.error),width=0.5)+
+  labs(title="Log Odds Ratio of Timezones")+
+   theme_bw()
+```
+
+```{r}
+
+expo_coefs %>%
+  filter( str_starts(term,"dep_date_US|dep_date_Eas")) %>%
+  mutate( Significant =   if_else(p.value < 0.05 ,"True","False"))%>%
+    mutate( term =  str_replace(term,"dep_date_","")) %>%
+    ggplot(aes(y=term,x=exp(estimate),col=Significant))+
+  geom_vline(xintercept = 1,col="grey80",lty=2,size=2)+
+  geom_point()+
+  geom_errorbar(aes(xmin=exp(estimate-1.96*std.error),
+                    xmax=exp(estimate+1.96*std.error)),width=0.5)+
+  labs(title="Odds Ratio of Holiday")+
+   theme_bw()
+
+```
+
+
+
+
+# Finialize Model
+
+```{r}
+final_tree_wf = 
+  tree_wf %>%
+  finalize_workflow(best_tree)
+
+final_tree_wf
+```
+
+## Fit Best Tree
+
+```{r}
+final_tree = final_tree_wf %>% fit(data=flights_train)
+
+final_tree
+```
+
+```{r}
+library(rpart.plot)
+
+pull_final_tree= final_tree %>%
+  pull_workflow_fit()
+
+rpart.plot(pull_final_tree$fit,roundint=FALSE)
+```
+
+
+```{r}
+library(vip)
+
+pull_final_tree %>%
+  vip()+
+   theme_bw()
+```
+
+
+
+# Test Fit
+
+
+## Tree Fit
+
+```{r}
+flights_pred <-
+  predict(final_tree,flights_test,type="prob") %>%
+  bind_cols(  flights_test %>% select(is_late)  )
+
+flights_pred %>%
+  roc_curve(truth=is_late, .pred_0)%>%
+  autoplot()
+
+```
+
+
+```{r}
+flights_pred %>% 
+  roc_auc(truth = is_late, .pred_0) %>%
+  bind_rows(
+
+predict(final_tree,flights_test) %>%
+  bind_cols( bind_cols(  flights_test %>% select(is_late)  ))%>% 
+  accuracy(truth=is_late,.pred_class)
+)
+```
+
+```{r}
+
+predict(final_tree,flights_test) %>%
+  bind_cols( bind_cols(  flights_test %>% select(is_late)  ))%>%
+conf_mat(truth=is_late,estimate=.pred_class)
+
+```
+
+## Logistic Fit
+
+```{r}
+logist_pred <-
+  predict(logt_fit,new_data = flights_test ,type = "prob") %>%
+  bind_cols(  flights_test %>% select(is_late)  )
+
+logist_pred %>%
+  roc_curve(truth=is_late, .pred_0)%>%
+  autoplot()
+
+```
+
+```{r}
+logist_pred %>% 
+  roc_auc(truth = is_late, .pred_0) %>%
+  bind_rows(
+    
+  predict(logt_fit,flights_test) %>%
+  bind_cols( bind_cols(  flights_test %>% select(is_late)  ))%>% 
+  accuracy(truth=is_late,.pred_class)  
+    
+    
+  )
+```
+
+
+```{r}
+predict(logt_fit,flights_test) %>%
+  bind_cols( bind_cols(  flights_test %>% select(is_late)  ))%>%
+conf_mat(truth=is_late,estimate=.pred_class)
+```
+
+Always predicting a plane not being late, would lead to a an accuracy of 86%.
+
+```{r}
+(58838+921)/69732*100
+
+```
+## Both Fits Compared
+
+
+```{r}
+predict(final_tree, flights_test, type = "prob") %>%
+  bind_cols(flights_test %>% select(is_late)) %>%
+  roc_curve(truth = is_late, .pred_0) %>%
+  mutate(model = "Decision Tree") %>%
+  bind_rows(
+    predict(logt_fit, flights_test, type = "prob") %>%
+      bind_cols(flights_test %>% select(is_late)) %>%
+      roc_curve(truth = is_late, .pred_0) %>%
+      mutate(model = "Logistic")
+  ) %>%
+  ggplot(aes(x = 1 - sensitivity,y = specificity,col = model)) +
+  geom_path(size = 1.5) +
+  geom_abline(slope = 1,lty = 2,col = "grey60",size = 2) +
+  coord_equal()+
+   theme_bw()
+```
+
+```{r}
+flights_pred %>% 
+  roc_auc(truth = is_late, .pred_0) %>%
+  bind_rows(
+
+predict(final_tree,flights_test) %>%
+  bind_cols( bind_cols(  flights_test %>% select(is_late)  ))%>% 
+  accuracy(truth=is_late,.pred_class)
+) %>% bind_cols(Model ="Decision Tree") %>%
+  bind_rows(
+    logist_pred %>% 
+  roc_auc(truth = is_late, .pred_0) %>%
+  bind_rows(
+    
+  predict(logt_fit,flights_test) %>%
+  bind_cols( bind_cols(  flights_test %>% select(is_late)  ))%>% 
+  accuracy(truth=is_late,.pred_class)  
+    
+    
+  ) %>% bind_cols(Model="Logistic")
+  ) %>%
+  pivot_wider(names_from = .metric, values_from=.estimate) %>%
+  select(-.estimator)
+```
+
+# Post-Hoc Analysis
+
+We can see what type of predictions the models made by generating fake data
+
+```{r}
+#Fake Date of the Top 3 Most Visited Locations On a Specific Day With Normal Weather Conditions
+
+fake_data = crossing(
+  dep_delay=seq(0,75),
+  carrier=c("UA","B6","EV","DL","US","9E"),
+  origin=c("EWR","JFK","LGA"),
+  temp=65,
+  precip = 0,
+  visib = 0,
+  mnfr_year = ("2000"),
+  seats = 200,
+  engine_type = c("Turbo-fan", "Turbo-jet", "Other"),
+  lat = c(33.94254,33.63672,42.36435), 
+  lon = c(-118.40807,-84.42807,-71.00518),
+  alt = c(126,1026,19),
+  tzone=c("America/Los_Angeles","America/New_York","America/New_York"),
+  dep_date=date("2013-09-16")
+)
+fake_data %>%
+  mutate(mnfr_year = factor(mnfr_year),
+         engine_type = factor(engine_type),
+         tzone= factor(tzone),
+         carrier=factor(carrier))
+```
+
+
+`
+
+```{r}
+
+fake_prediction = predict(logt_fit,new_data = fake_data,type="prob")
+
+```
+
+
+```{r}
+fake_prediction  %>%
+  bind_cols(  fake_data ) %>%
+  filter(lat ==33.63672  &  lon==-118.40807 & alt==126 & tzone =="America/Los_Angeles") %>%
+  #filter(carrier %in% c("US","UA")) %>%
+  ggplot(aes(x=dep_delay,y=.pred_1,col=carrier))+
+  #geom_line(size=1.5)+
+  geom_path()+
+  facet_grid(origin~engine_type)+
+  labs(title="Logistic Model Probabilities of Flight being Late",subtitle="Variation Between Engine Type, Carrier and Origin")+
+   theme_bw()
+  
+```
+
+```{r}
+fake_prediction = predict(final_tree,new_data=fake_data,type="prob")
+```
+
+```{r}
+fake_prediction  %>%
+  bind_cols(  fake_data ) %>%
+  filter(lat ==33.63672  &  lon==-118.40807 & alt==126 & tzone =="America/Los_Angeles") %>%
+ #filter(carrier %in% c("US","UA")) %>%
+  ggplot(aes(x=dep_delay,y=.pred_1,col=carrier))+
+  geom_line(size=1)+
+  facet_grid(origin~engine_type)+
+  labs(title="Decision Tree Probabilities of Flight being Late",subtitle="Variation Between Engine Type, Carrier and Origin")+
+   theme_bw()
+```
+
+We see observe that the departure delay is extremely important in both models, and we also see how different carriers have different probabilities of being late. We also notice that there is very little differences between the origin of flight and the engine type of the aircraft.
+
+
+We could further see how abnormal weather events may impact the arrival time, we could even try to see how the the day-by-day probabilities are affected if we fix everything else. 
+
+We could also investigate where the models went wrong, and true to see what the causes maybe and use the information for better models in the future.
+
+## Concluson
+
+Overall, it seems that the most important feature in trying to determine whether a flight will arrive 30 minutes late is the amount of time the plane was delayed on departure. We have also observed some interesting effects due to day,month and weather events.
+
+Some information was removed earlier, such as the time of day of flight. We have see that the time of day is important in discovering if a flight was late or not. For some reason this was removed. 
+
+Another way to improve the model would be to use factor lump on carriers that appear very few number of times. This could helping in making the model simplifier. 
+
+In contrast, we could make the model more complex; we could add non-linear transformations, like splines, on continuous variables such as: `lon`, `lat`, `precip`, or `temp`. This should improve the model predictability. 
+
+In reality it may be difficult to know by how delayed a flight will be delayed on departure, so another method could be to remove the departure delay feature. This may not improve final predictability, but it could more accurately represent real world conditions and be more useful for slightly long term predictions, on the order of around several days.
+
+
+
