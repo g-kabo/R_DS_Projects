@@ -1,6 +1,6 @@
 # R_DS_Projects
 
-This is a repo that contains data science / machine learning projects on data sets in R
+This is a repo that contains my personal data science / machine learning projects on data sets in R
 
 The links to the actual projects will be posted as links to rpubs below.
 
