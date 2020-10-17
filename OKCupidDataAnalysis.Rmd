@@ -475,7 +475,8 @@ paste("Time Taken:",end-start)
 
 ```{r}
 tree_res %>%
-  collect_metrics()
+  collect_metrics() %>%
+  rmarkdown::paged_table()
 
 
 
@@ -537,9 +538,9 @@ ggplot(aes(y=term,x=estimate,col=Significant))+
 
 What this is telling us, is that a unit increase in height, results in a unit increase of -0.105 for the log odds ratio of someone having a STEM major. The odds ratio is 0.9, this means that we expect to see a 10% decrease in odds ratio of someone being STEM, for a unit increase in height. 
 
-We see that Age is not a significant variable in determining a major of an person.
+We see that Age is not a significant variable in determining the major of a person.
 
-The base line of the model is someone from Berkeley and has a diet of Anything. From a diet perspective, we see that someone being: Vegetarian, Vegan Unkown or Other, are increase the odds of someone having a STEM Major. We do not see evidence that Kosher or Halal are different to Anything.
+The baseline of the model is someone from Berkeley and has a diet of Anything. From a diet perspective, we see that someone being: Vegetarian, Vegan Unknown or Other, increases the odds of someone having a STEM Major. We do not see evidence that Kosher or Halal are different to Anything.
 
 Location wise, Being at Oaklands, rather than Berkeley gives 17% increase in the odds of someone being STEM. Being at San Francisco is a 29% decrease in the oods of someone having a STEM Major, being from neither of these place results in a 20% decrease in the odds of someone being STEM.
 
@@ -638,6 +639,8 @@ final_tree_wf =
 
 final_tree_wf
 ```
+
+
 ```{r}
 library(vip)
 
@@ -649,6 +652,9 @@ pull_final_tree= final_tree %>%
 pull_final_tree %>%
   vip()
 ```
+
+It appears from the plot, that height is the most important variable for the decision tree, followed by height.
+
 
 # Performance on Test Set
 
@@ -719,19 +725,21 @@ predict(final_tree,new_data = okc_test,type="prob") %>%
   
 ```
 
-### Confustion Matrices
+### Confusion Matrices
 
 
 ```{r}
 predict(lgst_fit,new_data = okc_test)   %>%
    bind_cols(  okc_test %>% select(Class)  ) %>%
-  conf_mat(truth=Class,.pred_class)
+  conf_mat(truth=Class,.pred_class) %>%
+    autoplot(type="heatmap")
 ```
 
 ```{r}
 predict(final_tree,new_data = okc_test)   %>%
    bind_cols(  okc_test %>% select(Class)  ) %>%
-  conf_mat(truth=Class,.pred_class)
+  conf_mat(truth=Class,.pred_class) %>%
+  autoplot(type="heatmap")
 ```
 
 However, upon further inspection, we see that the tree is just predicting `other` many times. The base line is 
@@ -741,7 +749,7 @@ However, upon further inspection, we see that the tree is just predicting `other
 
 So in-fact, we did worse than always predicting the most common occurrence in our training set, which was to predict that someone was not a STEM major.
 
-# Post Analaysis
+# Post-Hoc Analysis
 
 ```{r}
 summary(okc_train)
@@ -814,6 +822,7 @@ lgst_cmb_preds= predict(lgst_fit,new_data = okc_test) %>%
   scale_color_manual(values = c("royalblue1","indianred1"))+
   labs(title="Logistic Model with False Positives and False Negatives")
 ```
+
 We see that the Logistic Model harshly classifies based on height.
 
 ```{r}
