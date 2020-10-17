@@ -1,0 +1,879 @@
+---
+title: "OkCupid Data"
+author: "Me"
+date: "14/10/2020"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: kable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,cache = TRUE)
+```
+
+```{r}
+library(modeldata)
+library(tidyverse)
+library(skimr)
+library(tidymodels)
+```
+
+# EDA
+
+## Basic EDA
+```{r}
+data("okc")
+
+skim(okc)
+```
+```{r}
+okc %>%
+  ggplot(aes(x=age))+
+  geom_histogram(binwidth = 1,fill="pink")+
+  theme_minimal()+
+  labs(title="OKC Users Tends To Be Young, The Most common Age Being 26",subtitle="Age Distribution of OKC Users",x="Age",y="Count")+
+  geom_vline(xintercept = 26, col="red",lty=2)
+```
+
+```{r}
+okc %>%
+  filter(height > 30)%>%
+  mutate(height = height/0.39370 )%>%
+  ggplot(aes(x=height))+
+  geom_histogram(bins=30,fill="pink")+
+  theme_minimal()+
+  labs(title="The Average OKC User was 175cm tall",subtitle="Height Distribution of OKC Users",x="Height (cm)",y="Count")
+```
+```{r}
+okc %>%
+  mutate(diet = str_remove(diet,"strictly"),
+         diet = str_remove(diet,"mostly"),
+         diet = str_remove(diet, " "),
+         diet = str_to_title(diet),
+         )%>%
+  count(diet)%>%
+  arrange(desc(n))%>%
+  ggplot(aes(x=n,y=reorder(diet,n),fill=diet))+
+  geom_col(show.legend = F)+
+  geom_text(aes(label=n),hjust=-.1)+
+  theme_minimal()+
+  lims(x=c(0,31000))+
+  labs(title = "OKC Users Were Not Picky Eaters",subtitle="Total Count of Diets",x="Count",y="Diet")
+```
+```{r}
+okc %>%
+  mutate(location = fct_lump_n(location,n=10) )%>%
+  mutate (location =  str_to_title(location))%>%
+  count(location) %>%
+  arrange(-n)%>%
+  ggplot(aes(x=n,y=reorder(location,n),fill=location))+
+  geom_col(show.legend = F)+
+  geom_text(aes(label=n),hjust=-.1)+
+  theme_minimal()+
+  lims(x=c(0,35000))+
+  labs(title = "Most OKC Users were from San Francisco",subtitle="Top 10 Most Common Locations",x="Count",y="Location")
+```
+
+```{r}
+okc %>%
+  count(Class)%>%
+  mutate(prop=n/sum(n)) %>%
+  ggplot(aes(x=Class,y=prop,fill=Class))+
+  geom_col(show.legend = FALSE)+
+  theme_minimal()+
+  scale_y_continuous(labels=scales::percent_format(),limits = c(0,1))+
+  geom_text(aes(label= paste(round(prop*100),"%"),vjust=-.1) )+
+  labs(title="STEM Students were in the Minority",subtitle="Percent of Users in STEM",x="Major",y="Percent")
+```
+
+Were the age demographics different for different locations?
+
+```{r}
+okc %>%
+  mutate(location = fct_lump_n(location,n=10) )%>%
+  mutate (location =  str_to_title(location)) %>%
+  ggplot(aes(x=reorder(location,age),y=age,fill=location))+
+  #geom_violin(show.legend = F,draw_quantiles = c(.25,.50,.75))+
+  geom_boxplot(show.legend = F)+
+  theme_minimal()+
+  labs(title="Age Distribution of 10 Most Populated Locations",x="Location",y="Age")
+```
+```{r}
+okc %>%
+  mutate(diet = str_remove(diet,"strictly"),
+         diet = str_remove(diet,"mostly"),
+         diet = str_remove(diet, " "),
+         diet = str_to_title(diet),
+     location = fct_lump_n(location,n=15),
+     location =  str_to_title(location)
+  )%>%
+  group_by(location)%>%
+  count(diet)%>%
+  ungroup()%>%
+  ggplot(aes(x=n,   y=tidytext::reorder_within(diet,n,location),fill=diet ))+
+  geom_col(show.legend = F)+
+  facet_wrap(.~location,scales = "free")+
+  tidytext::scale_y_reordered()+
+  #geom_text(aes(label=n,),hjust=.5)+
+  theme_minimal()+
+  labs(title="Most Common Diets by Top 16 Most Populated Areas",x=NULL,y=NULL)
+
+
+
+```
+
+```{r}
+okc %>%
+  filter(height > 30)%>%
+  na.omit(height)%>%
+  group_by(location)%>%
+mutate( avg_height = mean(height),
+          avg_age = mean(age)
+  )%>%
+  ungroup()%>%
+  distinct(location,.keep_all = TRUE) %>%
+  ggplot(aes(x=avg_age,y=avg_height))+
+  geom_point(col="red")+
+  geom_text(aes(label=location))+
+  theme_minimal()+
+  labs(title="Average Age and Height of OKC Users by Location",x="Average Age",y="Average Height")
+```
+
+
+
+
+```{r}
+okc %>%
+  #filter( !is.na(diet)) %>%
+  mutate(diet = str_remove(diet,"strictly"),
+         diet = str_remove(diet,"mostly"),
+         diet = str_remove(diet, " "),
+         diet = str_to_title(diet),
+     location = fct_lump_n(location,n=15),
+     location =  str_to_title(location)
+  ) %>%
+  group_by(diet,Class)%>%
+  count(diet)%>%
+  ungroup(diet)%>%
+  mutate(prop=n/sum(n)) %>%
+  ggplot(aes(x=reorder(diet,-prop),y=prop,fill=Class))+
+  geom_col(position = position_dodge())+
+  geom_text(aes(label=  paste0(  round(prop*100,1),"%" ) ),position = position_dodge(width = 1),vjust=-.5)+
+  scale_y_continuous(labels = scales::percent_format())+
+  labs(title="Dietary Difference Between Major",subtitle = "Proportion of Diet Amongst Major",x="Diet",y="Percent",fill="Class:")+
+    theme_minimal()+
+  theme(legend.position = "top",
+        panel.grid.major.x = element_blank() )
+```
+```{r}
+ggplot(okc,aes(x=Class,y=age,fill=Class))+
+  geom_violin(draw_quantiles = c(.25,.5,.75),show.legend = F)+
+  theme_minimal()+
+  labs(title="Age Distribution By Major")
+```
+
+```{r}
+okc %>%
+  filter(height > 25) %>%
+ggplot(aes(x=Class,y=height,fill=Class))+
+  geom_violin(draw_quantiles = c(.25,.5,.75),show.legend = F)+
+  #geom_boxplot(show.legend = F)+
+  theme_minimal()+
+  labs(title="Height Distribution By Major",y="Height (Inches)")
+```
+```{r}
+okc %>%
+  filter(height > 25) %>%
+  mutate(diet = str_remove(diet,"strictly"),
+         diet = str_remove(diet,"mostly"),
+         diet = str_remove(diet, " "),
+         diet = str_to_title(diet),
+  )%>%
+    ggplot(aes(x=reorder(diet,height),y=height,fill=diet))+
+    geom_violin(  draw_quantiles = c(.25,.5,.75),show.legend = FALSE)+
+    theme_minimal()+
+   labs(title="Height Difference Across Diets",x="Diet",y="Height (Inches)")
+```
+
+
+
+
+
+
+```{r}
+okc %>%
+  na.omit() %>%
+  filter(height > 25) %>%
+  mutate(diet = str_remove(diet,"strictly"),
+         diet = str_remove(diet,"mostly"),
+         diet = str_remove(diet, " "),
+         diet = str_to_title(diet),
+  )%>%
+    ggplot(aes(x=diet,y=height,fill=interaction(diet,Class) )   ) + #Use fill=interaction(Class,diet) for better colouring - doesn't work here due to NAs
+    geom_violin(  draw_quantiles = c(.25,.5,.75))+
+    theme_minimal()+
+   labs(title="Height Difference Majors Across Diets",subtitle ="Left is STEM, Right is Others" ,x="Diet",y="Height (Inches)")+
+   scale_fill_manual(values=c("darkslategray4","firebrick4","palegreen4","slateblue4","royalblue3","darkgoldenrod4",
+              "darkslategray1","firebrick2","palegreen1","slateblue2","royalblue1","darkgoldenrod1"))+
+  theme(legend.position = "right")+
+  guides(fill=guide_legend(ncol=2))
+```
+
+```{r}
+okc %>%
+  na.omit() %>%
+  filter(height > 25) %>%
+  mutate(diet = str_remove(diet,"strictly"),
+         diet = str_remove(diet,"mostly"),
+         diet = str_remove(diet, " "),
+         diet = str_to_title(diet),
+  )%>%
+    ggplot(aes(x=diet,y=height,fill=interaction(diet,Class) )   ) + #Use fill=interaction(Class,diet) for better colouring - doesn't work here due to NAs
+    #geom_violin(  draw_quantiles = c(.25,.5,.75))+
+  geom_boxplot()+
+    theme_minimal()+
+   labs(title="Height Difference Majors Across Diets",subtitle ="Left is STEM, Right is Others" ,x="Diet",y="Height (Inches)")+
+   scale_fill_manual(values=c("darkslategray4","firebrick4","palegreen4","slateblue4","royalblue3","darkgoldenrod4",
+              "darkslategray1","firebrick2","palegreen1","slateblue2","royalblue1","darkgoldenrod1"))+
+  theme(legend.position = "right")+
+  guides(fill=guide_legend(ncol=2))
+```
+```{r}
+okc %>%
+  na.omit() %>%
+  filter(height > 25) %>%
+  mutate(diet = str_remove(diet,"strictly"),
+         diet = str_remove(diet,"mostly"),
+         diet = str_remove(diet, " "),
+         diet = str_to_title(diet),
+  )%>%
+    ggplot(aes(x= tidytext::reorder_within(diet,height,Class)
+               ,y=height,fill=diet)) + #Use fill=interaction(Class,diet) for better colouring - doesn't work here due to NAs
+    #geom_violin(  draw_quantiles = c(.25,.5,.75))+
+  geom_boxplot()+
+  facet_wrap(.~Class,nrow=2,scales = "free_x")+
+    theme_bw()+
+   labs(title="STEM Majors Who Followed A Kosher Diet Were Tallest For That Group,\nWhile Vegans Were The Shortest",x="Diet",y="Height (Inches)")+
+   scale_fill_manual(values=c("darkslategray4","firebrick4","palegreen4","slateblue4","royalblue3","darkgoldenrod4"))+
+  theme(legend.position = "none")+
+  tidytext::scale_x_reordered()
+```
+
+
+
+
+Seeing combination of diet and class has the tallest individuals on average.
+
+```{r}
+okc %>%
+  #na.omit() %>%
+  filter(height > 25) %>%
+  mutate(diet = str_remove(diet,"strictly"),
+         diet = str_remove(diet,"mostly"),
+         diet = str_remove(diet, " "),
+         diet = str_to_title(diet),
+  ) %>%
+  group_by(Class,diet)%>%
+  summarise(avg_height = mean(height),.groups="keep") %>%
+  mutate( avg_height = avg_height/0.39370) %>%
+  arrange(-avg_height) %>%
+  ungroup() %>%
+  pivot_wider(names_from = Class,values_from=avg_height)%>%
+  mutate( avg = (stem+other)/2 )%>%
+  arrange(-avg)
+```
+
+
+
+
+```{r}
+okc %>%
+  na.omit() %>%
+  filter(height > 25) %>%
+  mutate(diet = str_remove(diet,"strictly"),
+         diet = str_remove(diet,"mostly"),
+         diet = str_remove(diet, " "),
+         diet = str_to_title(diet),
+  )%>%
+    ggplot(aes(x=diet,y=age,fill=interaction(diet,Class) )   ) + #Use fill=interaction(Class,diet) for better colouring - doesn't work here due to NAs
+    geom_violin(  draw_quantiles = c(.25,.5,.75))+
+    theme_minimal()+
+   labs(title="Age by Diet and Class",x="Diet",y="Age")+
+   scale_fill_manual(values=c("darkslategray4","firebrick4","palegreen4","slateblue4","royalblue3","darkgoldenrod4",
+              "darkslategray1","firebrick2","palegreen1","slateblue2","royalblue1","darkgoldenrod1"))+
+  theme(legend.position = "right")+
+  guides(fill=guide_legend(ncol=2))
+```
+
+
+
+
+
+
+
+
+
+Is there a difference between major in different locations?
+
+
+```{r}
+okc %>%
+  #filter( !is.na(diet)) %>%
+  mutate(location = fct_lump_prop(location,prop=0.01),
+         location =  str_to_title(location)
+  ) %>%
+  group_by(location,Class)%>%
+  count(location)%>%
+  ungroup(Class)%>%
+  mutate(prop=n/sum(n)) %>%
+  ungroup() %>%
+  ggplot(aes(x= location,y=prop,fill=Class))+
+  geom_col(position = position_stack() )+
+  geom_text(aes(label=  paste0(  round(prop*100,1),"%" ) ), position = position_stack(vjust = 0.5)  )+
+  scale_y_continuous(labels = scales::percent_format())+
+  labs(title="Major Difference Between Location",x="Location",y="Percent",fill="Class:")+
+  theme_minimal()+
+  theme(legend.position = "top",
+        panel.grid.major.x = element_blank() )+
+  coord_flip()+
+  guides(fill = guide_legend(reverse=TRUE))
+```
+```{r}
+okc %>%
+  #filter( !is.na(diet)) %>%
+  mutate(location = fct_lump_prop(location,prop=0.05),
+         location =  str_to_title(location)
+  ) %>%
+  group_by(location,Class)%>%
+  count(location)%>%
+  ungroup(Class)%>%
+  mutate(prop=n/sum(n)) %>%
+  ungroup() %>%
+  ggplot(aes(x= location,y=prop,fill=Class))+
+  geom_col(position = position_stack() )+
+  geom_text(aes(label=  paste0(  round(prop*100,1),"%" ) ), position = position_stack(vjust = 0.5)  )+
+  scale_y_continuous(labels = scales::percent_format())+
+  labs(title="Major Difference Between Location",x="Location",y="Percent",fill="Class:")+
+  theme_minimal()+
+  theme(legend.position = "top",
+        panel.grid.major.x = element_blank() )+
+  coord_flip()+
+  guides(fill = guide_legend(reverse=TRUE))
+```
+
+
+
+# Tidy Models
+
+
+## Creating Model Data
+
+Armed with the information gathered from the EDA process, we can create a cleaned dataset to model on. 
+
+```{r}
+okc_clean = okc %>%
+  filter( height>25) %>%
+  mutate(diet = str_remove(diet,"strictly"),
+         diet = str_remove(diet,"mostly"),
+         diet = str_remove(diet, " "),
+         diet = str_to_title(diet),
+         diet = factor(diet),
+         location = fct_lump_prop(location,prop=0.05), #Lump people who appear less than 5% as Other
+         location =  str_to_title(location),
+         location = factor(location))%>%
+  select(-date)
+
+```
+```{r}
+skim(okc_clean)
+```
+
+
+```{r}
+
+set.seed(8888)
+
+okc_split = initial_split(okc_clean,strata = Class)
+
+okc_train = training(okc_split)
+okc_test = testing(okc_split)
+
+
+```
+## Create A Recipie
+
+```{r}
+okc_rec = recipe(Class~.,data=okc_train) %>%
+  themis::step_downsample(Class) %>%
+  step_unknown(diet) %>%
+  step_dummy(all_nominal(),-all_outcomes()) %>%
+  step_zv(all_predictors())
+
+tree_rec = recipe(Class~.,data=okc_train) %>%
+  step_unknown(diet)
+
+
+```
+
+## Set Model Spec
+
+```{r}
+
+lgst_mod = logistic_reg() %>%
+  set_engine("glm")
+
+tree_mod = decision_tree(cost_complexity = tune(),
+                          min_n = tune(),
+                          tree_depth = tune()) %>%
+  set_engine("rpart")%>%
+  set_mode("classification")
+
+
+```
+
+## Creating Worflow
+
+
+
+```{r}
+lgst_wf = workflow() %>%
+    add_model(lgst_mod) %>%
+    add_recipe(okc_rec)
+
+tree_wf = workflow() %>%
+  add_model(tree_mod)%>%
+  add_recipe(tree_rec)
+
+```
+
+
+### Finding the Hyperparameters For Tree Model
+
+
+```{r}
+
+#doParallel::registerDoParallel()
+
+start = Sys.time()
+
+set.seed(8888)
+tree_res = tree_wf %>%
+  tune_grid(    resamples = vfold_cv(okc_train,strata = Class),
+                grid =  grid_max_entropy(cost_complexity(), min_n(),tree_depth(),size=20 ),
+                control = control_grid(save_pred = TRUE))
+
+#doParallel:::stopImplicitCluster()
+
+end = Sys.time()
+
+paste("Time Taken:",end-start)
+
+```
+
+
+```{r}
+tree_res %>%
+  collect_metrics()
+
+
+
+```
+
+
+```{r}
+tree_res %>%
+  collect_predictions() %>%
+  group_by(id) %>%
+  roc_curve(truth=Class,.pred_stem) %>%
+  ggplot(aes(x=1-sensitivity,y=specificity,col=id))+
+  geom_path(show.legend = FALSE, alpha = 0.6, size = 1.2) +
+  geom_abline(lty = 2, color = "gray80", size = 1.5) +
+  theme_minimal()+
+  coord_equal()
+  
+  
+```
+
+We do not see great results.
+
+```{r}
+tree_res %>%
+  select_best(metric="roc_auc")
+```
+
+
+
+### Estimate Logistic Regression
+
+```{r}
+lgst_fit = fit(lgst_wf,data=okc_train)
+```
+
+```{r}
+coefs = lgst_fit %>%
+  pull_workflow_fit() %>%
+  tidy()
+
+coefs
+```
+
+
+
+```{r}
+coefs %>%
+  filter(term!="(Intercept)")%>%
+  mutate(Significant = if_else(p.value < 0.05,"TRUE","FALSE")  ) %>%
+ggplot(aes(y=term,x=estimate,col=Significant))+
+  geom_point()+
+  geom_errorbar(aes(xmax=estimate+1.96*std.error,
+                xmin=estimate-1.96*std.error
+  ))+
+  geom_vline(xintercept=0,lty=4,col="grey50")+
+  theme_minimal()+
+  labs(title="Coefficients Estimates",subtitle="Log Odds Ratio",col="Signifcant\nat 5% level")
+```
+
+What this is telling us, is that a unit increase in height, results in a unit increase of -0.105 for the log odds ratio of someone having a STEM major. The odds ratio is 0.9, this means that we expect to see a 10% decrease in odds ratio of someone being STEM, for a unit increase in height. 
+
+We see that Age is not a significant variable in determining a major of an person.
+
+The base line of the model is someone from Berkeley and has a diet of Anything. From a diet perspective, we see that someone being: Vegetarian, Vegan Unkown or Other, are increase the odds of someone having a STEM Major. We do not see evidence that Kosher or Halal are different to Anything.
+
+Location wise, Being at Oaklands, rather than Berkeley gives 17% increase in the odds of someone being STEM. Being at San Francisco is a 29% decrease in the oods of someone having a STEM Major, being from neither of these place results in a 20% decrease in the odds of someone being STEM.
+
+```{r}
+coefs %>%
+  filter(term !="(Intercept)")%>%
+  mutate(Odds_Ratio = exp(estimate)) %>%
+  select(term,Odds_Ratio)
+```
+
+
+```{r}
+coefs %>%
+  filter(term != "(Intercept)") %>%
+  mutate(Significant = if_else(p.value < 0.05, "TRUE", "FALSE")) %>%
+  ggplot(aes(
+    y = term,
+    x = exp(estimate),
+    col = Significant
+  )) +
+  geom_point() +
+  geom_errorbar(aes(xmax = exp(estimate + 1.96 * std.error),
+                xmin = exp(estimate - 1.96 * std.error))  
+                )+
+  geom_vline(xintercept = 1,
+             lty = 4,
+             col = "grey50") +
+  theme_minimal() +
+  labs(title = "Odds Ratio",col="Signifcant\nat 5% level")
+```
+
+### Evaluating Logistic Regression Performance
+
+We will use resampling to get an estimate on how the model performed on the training set.
+
+
+```{r}
+set.seed(8888)
+lgst_train_rs = lgst_wf %>%
+  fit_resamples(
+   resamples = vfold_cv(okc_train,strata = Class),
+   metrics = metric_set(accuracy,roc_auc, sens, spec),
+    control = control_resamples(save_pred = TRUE)
+ )
+
+```
+
+```{r}
+lgst_train_rs %>%
+  collect_metrics()
+
+```
+```{r}
+lgst_train_rs %>%
+  collect_predictions()%>%
+  group_by(id)  %>%
+  roc_curve(truth=Class,.pred_stem) %>%
+  ggplot(aes(x=1-sensitivity,y=specificity,col=id))+
+  geom_path(show.legend = FALSE, alpha = 0.6, size = 1.2) +
+  geom_abline(lty = 2, color = "gray80", size = 1.5) +
+  theme_minimal()+
+  coord_equal()
+```
+
+
+Below we can see the ROC Curve, we don't get good results on the tree model
+```{r}
+lgst_train_rs %>%
+  collect_predictions()%>%
+  group_by(id)%>% 
+  roc_curve(truth=Class,.pred_stem) %>%
+    mutate(model="Logistic") %>%
+  
+  bind_rows(
+    tree_res %>%
+  collect_predictions()%>%
+  group_by(id)%>% 
+  roc_curve(truth=Class,.pred_stem) %>%
+    mutate(model="Decision Tree")
+) %>%
+  ggplot(aes(x=1-sensitivity,y=specificity,col=model))+
+  geom_path(alpha = 0.7, size = 1) +
+  geom_abline(lty = 2, color = "gray80", size = 1.5) +
+  theme_minimal()+
+  coord_equal()
+```
+
+### Using Best Tree
+
+```{r}
+best_tree = tree_res %>% select_best("roc_auc")
+
+final_tree_wf = 
+  tree_wf %>%
+  finalize_workflow(best_tree)
+
+final_tree_wf
+```
+```{r}
+library(vip)
+
+final_tree = final_tree_wf %>% fit(data=okc_train)
+
+pull_final_tree= final_tree %>%
+  pull_workflow_fit()
+
+pull_final_tree %>%
+  vip()
+```
+
+# Performance on Test Set
+
+We can see the roc_auc and accuracy.
+
+
+
+
+
+```{r}
+
+predict(lgst_fit,new_data = okc_test,type="prob") %>%
+   bind_cols(  okc_test %>% select(Class)  ) %>%
+   roc_auc(truth=Class, .pred_stem) %>%
+  mutate(model="Logistic") %>%
+  bind_rows(
+
+predict(final_tree,new_data = okc_test,type="prob") %>%
+   bind_cols(  okc_test %>% select(Class)  ) %>%
+   roc_auc(truth=Class, .pred_stem)%>%
+  mutate(model="Decision Tree")
+) %>%
+  select(model,.estimate,.metric) %>%
+  
+  bind_rows(
+
+
+predict(lgst_fit,new_data = okc_test)   %>%
+   bind_cols(  okc_test %>% select(Class)  ) %>%
+   accuracy(truth=Class, .pred_class) %>%
+  mutate(model="Logistic") %>%
+  bind_rows(
+
+predict(final_tree,new_data = okc_test)   %>%
+   bind_cols(  okc_test %>% select(Class)  ) %>%
+   accuracy(truth=Class, .pred_class) %>%
+  mutate(model="Decision Tree")
+) %>%
+  select(model,.estimate,.metric)
+
+) %>%
+  pivot_wider(names_from = .metric,values_from=.estimate)
+
+
+
+```
+
+In terms of roc_auc and accuracy, the decision tree is superior that the logistic model.
+
+
+```{r}
+predict(lgst_fit,new_data = okc_test,type="prob") %>%
+   bind_cols(  okc_test %>% select(Class)  ) %>%
+   roc_curve(truth=Class, .pred_stem)%>%
+  mutate(model="Logistic") %>%
+  bind_rows(
+
+predict(final_tree,new_data = okc_test,type="prob") %>%
+   bind_cols(  okc_test %>% select(Class)  ) %>%
+   roc_curve(truth=Class, .pred_stem)%>%
+  mutate(model="Decision Tree")
+) %>%
+  ggplot(aes(x=1-specificity,y=sensitivity,col=model))+
+  geom_path(size=2)+
+  geom_abline(slope=1,col="grey50",size=1.5,lty=8)+
+  theme_minimal()+
+  coord_equal()
+  
+```
+
+### Confustion Matrices
+
+
+```{r}
+predict(lgst_fit,new_data = okc_test)   %>%
+   bind_cols(  okc_test %>% select(Class)  ) %>%
+  conf_mat(truth=Class,.pred_class)
+```
+
+```{r}
+predict(final_tree,new_data = okc_test)   %>%
+   bind_cols(  okc_test %>% select(Class)  ) %>%
+  conf_mat(truth=Class,.pred_class)
+```
+
+However, upon further inspection, we see that the tree is just predicting `other` many times. The base line is 
+```{r}
+(12546+31)/nrow(okc_test) *100
+```
+
+So in-fact, we did worse than always predicting the most common occurrence in our training set, which was to predict that someone was not a STEM major.
+
+# Post Analaysis
+
+```{r}
+summary(okc_train)
+```
+We create a fake dataset to see what the models are predicting.
+
+```{r}
+fake_data_2 = expand_grid(
+  age = (18:70),
+  height = (60:80),
+  location = c("San Francisco", "Oakland", "Other", "Berkeley"),
+  diet = c("Halal", "Kosher","Anything","Other",NA, "Vegan", "Vegetarian")
+)
+
+```
+
+```{r}
+
+predict(lgst_fit,new_data=fake_data_2) %>%
+  rename(Pred =  .pred_class) %>%
+  bind_cols(fake_data_2) %>%
+  ggplot(aes(x=age,y=height,fill=Pred))+
+  geom_tile()+
+  theme_bw()+
+  facet_grid(diet~location)+
+  labs(title="Logistic Model Predictions of Various Users\nWith Different Age, Height, Location and Diet")
+```
+
+```{r}
+
+predict(final_tree,new_data=fake_data_2) %>%
+  rename(Pred =  .pred_class) %>%
+  bind_cols(fake_data_2) %>%
+  ggplot(aes(x=age,y=height,fill=Pred))+
+  geom_tile()+
+  theme_bw()+
+  facet_grid(diet~location)+
+  labs(title="Decision Tree Model Predictions of Various Users\nWith Different Age, Height, Location and Diet")
+```
+
+
+```{r}
+lgst_cmb_preds= predict(lgst_fit,new_data = okc_test) %>%
+  bind_cols(okc_test) %>%
+  mutate( Result =   case_when( .pred_class == "stem"  & Class=="stem"  ~ "TP",
+                                 .pred_class == "other"  & Class=="other"  ~ "TN",
+                                 .pred_class == "stem"  & Class=="other"  ~ "FP",
+                                  .pred_class == "other"  & Class=="stem"  ~ "FN"
+                                )) %>%
+  rename(Pred = .pred_class)
+
+```
+
+```{r}
+  ggplot()+
+  geom_point( data= lgst_cmb_preds%>%filter(Result %in% c("FN","FP")) ,mapping=aes(x=age,y=height),col="grey",alpha=0.8)+
+  geom_point( data= lgst_cmb_preds%>%filter(!Result %in% c("FN","FP")) ,mapping=aes(x=age,y=height,col=Result),alpha=0.8)+
+  theme_bw()+
+  facet_grid(diet~location)+
+  scale_color_manual(values = c("royalblue4","indianred4"))+
+  labs(title="Logistic Model with True Positives and True Negatives")
+```
+
+```{r}
+  ggplot()+
+  geom_point( data= lgst_cmb_preds%>%filter(!Result %in% c("FN","FP")) ,mapping=aes(x=age,y=height),col="grey",alpha=0.8)+
+  geom_point( data= lgst_cmb_preds%>%filter(Result %in% c("FN","FP")) ,mapping=aes(x=age,y=height,col=Result),alpha=0.8)+
+  theme_bw()+
+  facet_grid(diet~location)+
+  scale_color_manual(values = c("royalblue1","indianred1"))+
+  labs(title="Logistic Model with False Positives and False Negatives")
+```
+We see that the Logistic Model harshly classifies based on height.
+
+```{r}
+ggplot(okc_train,aes(x=age,y=height,col=Class))+
+  geom_point(alpha=0.8)+
+  theme_bw()+
+  facet_grid(diet~location)+
+  scale_color_manual(values = c("seagreen","mediumpurple3"))+
+  labs(title="OKC Training Set")
+```
+
+```{r}
+ggplot(okc_test,aes(x=age,y=height,col=Class))+
+  geom_point(alpha=0.8)+
+  theme_bw()+
+  facet_grid(diet~location)+
+  scale_color_manual(values = c("seagreen","mediumpurple3"))+
+  labs(title="OKC Test Set")
+```
+
+```{r}
+predict(lgst_fit,new_data=fake_data_2,type="prob") %>%
+  #rename(Pred =  .pred_class) %>%
+  bind_cols(fake_data_2) %>%
+  ggplot(aes(x=age,y=height,fill=.pred_other))+
+  geom_tile()+
+  theme_bw()+
+  facet_grid(diet~location)+
+  scale_fill_gradientn(colours =  RColorBrewer::brewer.pal(n = 11, name = 'PRGn'))+
+  #scale_fill_brewer(palette = RColorBrewer::brewer.pal(n = 10, name = 'PRGn'))+
+  labs(title="Logistic Model Probabilities of Various Users\nWith Different Age, Height, Location and Diet")
+```
+
+```{r}
+predict(final_tree,new_data=fake_data_2,type="prob") %>%
+  #rename(Pred =  .pred_class) %>%
+  bind_cols(fake_data_2) %>%
+  ggplot(aes(x=age,y=height,fill=.pred_stem))+
+  geom_tile()+
+  theme_bw()+
+  facet_grid(diet~location)+
+  scale_fill_gradientn(colours =  RColorBrewer::brewer.pal(n=9,name="Reds"))+
+  labs(title="Tree Model Probabilities of Various Users Being STEM\nWith Different Age, Height, Location and Diet")
+```
+
+
+
+
+# Conclusion
+
+It appears that it is difficult to predict whether a user has a STEM Major. Perhaps using something like a Random Forest or KNN may yield better results, as it can model complex interactions. Either way, it appears using simple approaches does not give good results.
+
+We also have a large class imbalance, to remedy this problem, using something like the SMOTE algorithm to create synthetic data may help.
+
+Another approach would be to combine the two models in order to create an ensemble model. We can also add other models to get better predictions. The Logistic model was much better in finding the true positives, while the Decision Tree was poor in this regard.
+
+It could also be the case that we just don't have enough good, quality data to predict such a rare event. If we had other features, we could perhaps be in a better position to predict better.
+
+
+
+
+
+
