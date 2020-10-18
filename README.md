@@ -12,7 +12,7 @@ Predicting if a flight will arrive 30 minutes late.
 
 ## OKCupid User Data
 
-link:
+link: https://rpubs.com/g_kabo/OKC_Data
 
 Predicting if a user is a STEM major.
 
