@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE,cache = TRUE)
 ```
 
 
-```{r}
+```{r, results='hide'}
 library(tidymodels)
 library(tidyverse)
 library(skimr)
@@ -33,7 +33,7 @@ theme_set(theme_bw())
 ```
 
 
-Here we will look at the NYC flight data from the `nycflights13` package. The problem to investigate is to come up with a model that can predict when a flight's arrival time will be delayed.
+Here we will look at the NYC flight data from the `nycflights13` package. The problem to investigate is to come up with a model that can predict when a flight's arrival time will be delayed. This first document will mainly be exploring the data. The second document will perform machine learning.
 
 # Data
 
@@ -453,7 +453,7 @@ flights_joined %>%
 
 ```
 
-Is there any associate with carrier and a plane being late?
+Is there any association between carriers and a plane being late?
 
 
 
@@ -469,7 +469,7 @@ flights_joined %>%
   ggplot(aes(x=carrier,fill=is_late))+
   geom_bar(position="fill",alpha=0.8)+
   geom_hline(yintercept = 0.1586697,lty=2,size=1.5,col="black")+
-  annotate(geom="label",x=4, y=0.25,label="Average Late %",size=6)+
+  annotate(geom="label",x=4, y=0.25,label="Average Proportion",size=6)+
   labs(title="Proportion of Flights by Carrier Classed by Lateness",y="Proportion of Flights",fill="Is Late?")
 ```
 We see that Hawaiian Airlines does the best by having the fewest proportion of flights being late, and Frontier Airlines does the worst by having the highest proportions of it's flight as late.

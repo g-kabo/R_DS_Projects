@@ -1,0 +1,5573 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Me" />
+
+<meta name="date" content="2020-02-10" />
+
+<title>NYC Flights - Initial Cleaning and Investigation</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/jqueryui-1.11.4/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+      </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 51px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h2 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h3 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h4 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h5 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h6 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row-fluid">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Personal Website</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="NYC_Flights_EDA.html">NYC Flights EDA</a>
+</li>
+<li>
+  <a href="NYC_Flights_TidyModel.html">NYC Flights with Tidymodels</a>
+</li>
+<li>
+  <a href="OKCupidDataAnalysis.html">OK Cupid</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">NYC Flights - Initial Cleaning and Investigation</h1>
+<h4 class="author">Me</h4>
+<h4 class="date">02/10/2020</h4>
+
+</div>
+
+
+<pre class="r"><code>library(tidymodels)
+library(tidyverse)
+library(skimr)
+library(nycflights13)
+library(timeDate)
+library(lubridate)
+library(maps)
+library(patchwork)
+library(corrplot)
+library(GGally)
+library(rpart.plot)
+library(vip)
+
+theme_set(theme_bw())</code></pre>
+<p>Here we will look at the NYC flight data from the <code>nycflights13</code> package. The problem to investigate is to come up with a model that can predict when a flight’s arrival time will be delayed. This first document will mainly be exploring the data. The second document will perform machine learning.</p>
+<div id="data" class="section level1">
+<h1><span class="header-section-number">1</span> Data</h1>
+<div id="flights-data" class="section level2">
+<h2><span class="header-section-number">1.1</span> Flights Data</h2>
+<pre class="r"><code>skim(flights)</code></pre>
+<table>
+<caption>Data summary</caption>
+<tbody>
+<tr class="odd">
+<td align="left">Name</td>
+<td align="left">flights</td>
+</tr>
+<tr class="even">
+<td align="left">Number of rows</td>
+<td align="left">336776</td>
+</tr>
+<tr class="odd">
+<td align="left">Number of columns</td>
+<td align="left">19</td>
+</tr>
+<tr class="even">
+<td align="left">_______________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Column type frequency:</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">character</td>
+<td align="left">4</td>
+</tr>
+<tr class="odd">
+<td align="left">numeric</td>
+<td align="left">14</td>
+</tr>
+<tr class="even">
+<td align="left">POSIXct</td>
+<td align="left">1</td>
+</tr>
+<tr class="odd">
+<td align="left">________________________</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">Group variables</td>
+<td align="left">None</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: character</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">min</th>
+<th align="right">max</th>
+<th align="right">empty</th>
+<th align="right">n_unique</th>
+<th align="right">whitespace</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">carrier</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">2</td>
+<td align="right">2</td>
+<td align="right">0</td>
+<td align="right">16</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">tailnum</td>
+<td align="right">2512</td>
+<td align="right">0.99</td>
+<td align="right">5</td>
+<td align="right">6</td>
+<td align="right">0</td>
+<td align="right">4043</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">origin</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">3</td>
+<td align="right">3</td>
+<td align="right">0</td>
+<td align="right">3</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">dest</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">3</td>
+<td align="right">3</td>
+<td align="right">0</td>
+<td align="right">105</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">p0</th>
+<th align="right">p25</th>
+<th align="right">p50</th>
+<th align="right">p75</th>
+<th align="right">p100</th>
+<th align="left">hist</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">year</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">2013.00</td>
+<td align="right">0.00</td>
+<td align="right">2013</td>
+<td align="right">2013</td>
+<td align="right">2013</td>
+<td align="right">2013</td>
+<td align="right">2013</td>
+<td align="left">▁▁▇▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">month</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">6.55</td>
+<td align="right">3.41</td>
+<td align="right">1</td>
+<td align="right">4</td>
+<td align="right">7</td>
+<td align="right">10</td>
+<td align="right">12</td>
+<td align="left">▇▆▆▆▇</td>
+</tr>
+<tr class="odd">
+<td align="left">day</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">15.71</td>
+<td align="right">8.77</td>
+<td align="right">1</td>
+<td align="right">8</td>
+<td align="right">16</td>
+<td align="right">23</td>
+<td align="right">31</td>
+<td align="left">▇▇▇▇▆</td>
+</tr>
+<tr class="even">
+<td align="left">dep_time</td>
+<td align="right">8255</td>
+<td align="right">0.98</td>
+<td align="right">1349.11</td>
+<td align="right">488.28</td>
+<td align="right">1</td>
+<td align="right">907</td>
+<td align="right">1401</td>
+<td align="right">1744</td>
+<td align="right">2400</td>
+<td align="left">▁▇▆▇▃</td>
+</tr>
+<tr class="odd">
+<td align="left">sched_dep_time</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1344.25</td>
+<td align="right">467.34</td>
+<td align="right">106</td>
+<td align="right">906</td>
+<td align="right">1359</td>
+<td align="right">1729</td>
+<td align="right">2359</td>
+<td align="left">▁▇▇▇▃</td>
+</tr>
+<tr class="even">
+<td align="left">dep_delay</td>
+<td align="right">8255</td>
+<td align="right">0.98</td>
+<td align="right">12.64</td>
+<td align="right">40.21</td>
+<td align="right">-43</td>
+<td align="right">-5</td>
+<td align="right">-2</td>
+<td align="right">11</td>
+<td align="right">1301</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">arr_time</td>
+<td align="right">8713</td>
+<td align="right">0.97</td>
+<td align="right">1502.05</td>
+<td align="right">533.26</td>
+<td align="right">1</td>
+<td align="right">1104</td>
+<td align="right">1535</td>
+<td align="right">1940</td>
+<td align="right">2400</td>
+<td align="left">▁▃▇▇▇</td>
+</tr>
+<tr class="even">
+<td align="left">sched_arr_time</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1536.38</td>
+<td align="right">497.46</td>
+<td align="right">1</td>
+<td align="right">1124</td>
+<td align="right">1556</td>
+<td align="right">1945</td>
+<td align="right">2359</td>
+<td align="left">▁▃▇▇▇</td>
+</tr>
+<tr class="odd">
+<td align="left">arr_delay</td>
+<td align="right">9430</td>
+<td align="right">0.97</td>
+<td align="right">6.90</td>
+<td align="right">44.63</td>
+<td align="right">-86</td>
+<td align="right">-17</td>
+<td align="right">-5</td>
+<td align="right">14</td>
+<td align="right">1272</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">flight</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1971.92</td>
+<td align="right">1632.47</td>
+<td align="right">1</td>
+<td align="right">553</td>
+<td align="right">1496</td>
+<td align="right">3465</td>
+<td align="right">8500</td>
+<td align="left">▇▃▃▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">air_time</td>
+<td align="right">9430</td>
+<td align="right">0.97</td>
+<td align="right">150.69</td>
+<td align="right">93.69</td>
+<td align="right">20</td>
+<td align="right">82</td>
+<td align="right">129</td>
+<td align="right">192</td>
+<td align="right">695</td>
+<td align="left">▇▂▂▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">distance</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1039.91</td>
+<td align="right">733.23</td>
+<td align="right">17</td>
+<td align="right">502</td>
+<td align="right">872</td>
+<td align="right">1389</td>
+<td align="right">4983</td>
+<td align="left">▇▃▂▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">hour</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">13.18</td>
+<td align="right">4.66</td>
+<td align="right">1</td>
+<td align="right">9</td>
+<td align="right">13</td>
+<td align="right">17</td>
+<td align="right">23</td>
+<td align="left">▁▇▇▇▅</td>
+</tr>
+<tr class="even">
+<td align="left">minute</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">26.23</td>
+<td align="right">19.30</td>
+<td align="right">0</td>
+<td align="right">8</td>
+<td align="right">29</td>
+<td align="right">44</td>
+<td align="right">59</td>
+<td align="left">▇▃▆▃▅</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: POSIXct</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">min</th>
+<th align="left">max</th>
+<th align="left">median</th>
+<th align="right">n_unique</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">time_hour</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">2013-01-01 05:00:00</td>
+<td align="left">2013-12-31 23:00:00</td>
+<td align="left">2013-07-03 10:00:00</td>
+<td align="right">6936</td>
+</tr>
+</tbody>
+</table>
+<p>Let’s look at the NA value</p>
+<pre class="r"><code>flights %&gt;%
+  filter ( is.na(arr_delay)   )</code></pre>
+<pre><code>## # A tibble: 9,430 x 19
+##     year month   day dep_time sched_dep_time dep_delay arr_time sched_arr_time
+##    &lt;int&gt; &lt;int&gt; &lt;int&gt;    &lt;int&gt;          &lt;int&gt;     &lt;dbl&gt;    &lt;int&gt;          &lt;int&gt;
+##  1  2013     1     1     1525           1530        -5     1934           1805
+##  2  2013     1     1     1528           1459        29     2002           1647
+##  3  2013     1     1     1740           1745        -5     2158           2020
+##  4  2013     1     1     1807           1738        29     2251           2103
+##  5  2013     1     1     1939           1840        59       29           2151
+##  6  2013     1     1     1952           1930        22     2358           2207
+##  7  2013     1     1     2016           1930        46       NA           2220
+##  8  2013     1     1       NA           1630        NA       NA           1815
+##  9  2013     1     1       NA           1935        NA       NA           2240
+## 10  2013     1     1       NA           1500        NA       NA           1825
+## # ... with 9,420 more rows, and 11 more variables: arr_delay &lt;dbl&gt;,
+## #   carrier &lt;chr&gt;, flight &lt;int&gt;, tailnum &lt;chr&gt;, origin &lt;chr&gt;, dest &lt;chr&gt;,
+## #   air_time &lt;dbl&gt;, distance &lt;dbl&gt;, hour &lt;dbl&gt;, minute &lt;dbl&gt;, time_hour &lt;dttm&gt;</code></pre>
+<p>It appears there are many flights with missing data on the flight arrival times. We will omit these entires. But there are methods that can be used to impute missing values.</p>
+</div>
+<div id="airports-data" class="section level2">
+<h2><span class="header-section-number">1.2</span> Airports Data</h2>
+<p>Let’s look at the airports</p>
+<pre class="r"><code>skim(airports)</code></pre>
+<table>
+<caption>Data summary</caption>
+<tbody>
+<tr class="odd">
+<td align="left">Name</td>
+<td align="left">airports</td>
+</tr>
+<tr class="even">
+<td align="left">Number of rows</td>
+<td align="left">1458</td>
+</tr>
+<tr class="odd">
+<td align="left">Number of columns</td>
+<td align="left">8</td>
+</tr>
+<tr class="even">
+<td align="left">_______________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Column type frequency:</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">character</td>
+<td align="left">4</td>
+</tr>
+<tr class="odd">
+<td align="left">numeric</td>
+<td align="left">4</td>
+</tr>
+<tr class="even">
+<td align="left">________________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Group variables</td>
+<td align="left">None</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: character</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">min</th>
+<th align="right">max</th>
+<th align="right">empty</th>
+<th align="right">n_unique</th>
+<th align="right">whitespace</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">faa</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">3</td>
+<td align="right">3</td>
+<td align="right">0</td>
+<td align="right">1458</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">name</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">4</td>
+<td align="right">51</td>
+<td align="right">0</td>
+<td align="right">1440</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">dst</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td align="right">3</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">tzone</td>
+<td align="right">3</td>
+<td align="right">1</td>
+<td align="right">14</td>
+<td align="right">19</td>
+<td align="right">0</td>
+<td align="right">9</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">p0</th>
+<th align="right">p25</th>
+<th align="right">p50</th>
+<th align="right">p75</th>
+<th align="right">p100</th>
+<th align="left">hist</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">lat</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">41.65</td>
+<td align="right">10.45</td>
+<td align="right">19.72</td>
+<td align="right">34.26</td>
+<td align="right">40.09</td>
+<td align="right">45.07</td>
+<td align="right">72.27</td>
+<td align="left">▂▇▆▂▁</td>
+</tr>
+<tr class="even">
+<td align="left">lon</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">-103.39</td>
+<td align="right">29.84</td>
+<td align="right">-176.65</td>
+<td align="right">-119.19</td>
+<td align="right">-94.66</td>
+<td align="right">-82.52</td>
+<td align="right">174.11</td>
+<td align="left">▅▇▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">alt</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">1001.42</td>
+<td align="right">1523.63</td>
+<td align="right">-54.00</td>
+<td align="right">70.25</td>
+<td align="right">473.00</td>
+<td align="right">1062.50</td>
+<td align="right">9078.00</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">tz</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">-6.52</td>
+<td align="right">1.62</td>
+<td align="right">-10.00</td>
+<td align="right">-8.00</td>
+<td align="right">-6.00</td>
+<td align="right">-5.00</td>
+<td align="right">8.00</td>
+<td align="left">▆▇▁▁▁</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>airports %&gt;%
+  filter ( is.na(tzone)   )</code></pre>
+<pre><code>## # A tibble: 3 x 8
+##   faa   name                                  lat    lon   alt    tz dst   tzone
+##   &lt;chr&gt; &lt;chr&gt;                               &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt; &lt;chr&gt;
+## 1 EEN   Dillant Hopkins Airport              72.3   42.9   149    -5 A     &lt;NA&gt; 
+## 2 LRO   Mount Pleasant Regional-Faison Fie~  32.5  -79.5    12    -5 A     &lt;NA&gt; 
+## 3 YAK   Yakutat                              59.3 -139.     33    -9 A     &lt;NA&gt;</code></pre>
+<p>It is mostly complete, we are just missing the timezones for three airports</p>
+<p>We mostly have airports in the US, with some in Asia</p>
+<pre class="r"><code>world &lt;- map_data(&quot;world&quot;)
+ggplot() +
+  geom_map(data = world, map = world,aes(x=long,y=lat,map_id = region),color = &quot;black&quot;, fill = &quot;lightgray&quot;)+
+  geom_point(data=airports,mapping=aes(x=lon,y=lat,col=alt))+
+  scale_colour_viridis_c(option=&quot;C&quot;)+
+  theme_dark()</code></pre>
+<pre><code>## Warning: Ignoring unknown aesthetics: x, y</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>We mostly have airports in the US, with some in Asia, though we notice that there is a supposed destination in the middle of the Barents Sea, North of Russia!</p>
+<p>Filtered flights with missing longitudes and latitudes</p>
+<pre class="r"><code>flights %&gt;%
+  filter ( !is.na(arr_delay) )%&gt;%
+    left_join(airports,by=c(&quot;dest&quot;=&quot;faa&quot;))%&gt;%
+  filter(is.na(lon) &amp; is.na(lat) )%&gt;%
+  count(dest)</code></pre>
+<pre><code>## # A tibble: 4 x 2
+##   dest      n
+##   &lt;chr&gt; &lt;int&gt;
+## 1 BQN     888
+## 2 PSE     358
+## 3 SJU    5773
+## 4 STT     518</code></pre>
+<p>We can manually add in these missing values</p>
+<pre class="r"><code>flights %&gt;%
+  filter ( !is.na(arr_delay) )%&gt;%
+    left_join(airports,by=c(&quot;dest&quot;=&quot;faa&quot;)) %&gt;%
+  mutate( tzone = factor(tzone)) %&gt;%
+  group_by(tzone)%&gt;%
+  count()</code></pre>
+<pre><code>## # A tibble: 8 x 2
+## # Groups:   tzone [8]
+##   tzone                    n
+##   &lt;fct&gt;                &lt;int&gt;
+## 1 America/Anchorage        8
+## 2 America/Chicago      72133
+## 3 America/Denver       10165
+## 4 America/Los_Angeles  45867
+## 5 America/New_York    186329
+## 6 America/Phoenix       4606
+## 7 Pacific/Honolulu       701
+## 8 &lt;NA&gt;                  7537</code></pre>
+<p>We see most flights are to airports in New York, about 701 end up in the Pacific.</p>
+</div>
+<div id="weather-data" class="section level2">
+<h2><span class="header-section-number">1.3</span> Weather Data</h2>
+<pre class="r"><code>skim(weather)</code></pre>
+<table>
+<caption>Data summary</caption>
+<tbody>
+<tr class="odd">
+<td align="left">Name</td>
+<td align="left">weather</td>
+</tr>
+<tr class="even">
+<td align="left">Number of rows</td>
+<td align="left">26115</td>
+</tr>
+<tr class="odd">
+<td align="left">Number of columns</td>
+<td align="left">15</td>
+</tr>
+<tr class="even">
+<td align="left">_______________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Column type frequency:</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">character</td>
+<td align="left">1</td>
+</tr>
+<tr class="odd">
+<td align="left">numeric</td>
+<td align="left">13</td>
+</tr>
+<tr class="even">
+<td align="left">POSIXct</td>
+<td align="left">1</td>
+</tr>
+<tr class="odd">
+<td align="left">________________________</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">Group variables</td>
+<td align="left">None</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: character</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">min</th>
+<th align="right">max</th>
+<th align="right">empty</th>
+<th align="right">n_unique</th>
+<th align="right">whitespace</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">origin</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">3</td>
+<td align="right">3</td>
+<td align="right">0</td>
+<td align="right">3</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">p0</th>
+<th align="right">p25</th>
+<th align="right">p50</th>
+<th align="right">p75</th>
+<th align="right">p100</th>
+<th align="left">hist</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">year</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">2013.00</td>
+<td align="right">0.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="left">▁▁▇▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">month</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">6.50</td>
+<td align="right">3.44</td>
+<td align="right">1.00</td>
+<td align="right">4.00</td>
+<td align="right">7.00</td>
+<td align="right">9.00</td>
+<td align="right">12.00</td>
+<td align="left">▇▆▆▆▇</td>
+</tr>
+<tr class="odd">
+<td align="left">day</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">15.68</td>
+<td align="right">8.76</td>
+<td align="right">1.00</td>
+<td align="right">8.00</td>
+<td align="right">16.00</td>
+<td align="right">23.00</td>
+<td align="right">31.00</td>
+<td align="left">▇▇▇▇▆</td>
+</tr>
+<tr class="even">
+<td align="left">hour</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">11.49</td>
+<td align="right">6.91</td>
+<td align="right">0.00</td>
+<td align="right">6.00</td>
+<td align="right">11.00</td>
+<td align="right">17.00</td>
+<td align="right">23.00</td>
+<td align="left">▇▇▆▇▇</td>
+</tr>
+<tr class="odd">
+<td align="left">temp</td>
+<td align="right">1</td>
+<td align="right">1.00</td>
+<td align="right">55.26</td>
+<td align="right">17.79</td>
+<td align="right">10.94</td>
+<td align="right">39.92</td>
+<td align="right">55.40</td>
+<td align="right">69.98</td>
+<td align="right">100.04</td>
+<td align="left">▂▇▇▇▁</td>
+</tr>
+<tr class="even">
+<td align="left">dewp</td>
+<td align="right">1</td>
+<td align="right">1.00</td>
+<td align="right">41.44</td>
+<td align="right">19.39</td>
+<td align="right">-9.94</td>
+<td align="right">26.06</td>
+<td align="right">42.08</td>
+<td align="right">57.92</td>
+<td align="right">78.08</td>
+<td align="left">▁▆▇▇▆</td>
+</tr>
+<tr class="odd">
+<td align="left">humid</td>
+<td align="right">1</td>
+<td align="right">1.00</td>
+<td align="right">62.53</td>
+<td align="right">19.40</td>
+<td align="right">12.74</td>
+<td align="right">47.05</td>
+<td align="right">61.79</td>
+<td align="right">78.79</td>
+<td align="right">100.00</td>
+<td align="left">▁▆▇▇▆</td>
+</tr>
+<tr class="even">
+<td align="left">wind_dir</td>
+<td align="right">460</td>
+<td align="right">0.98</td>
+<td align="right">199.76</td>
+<td align="right">107.31</td>
+<td align="right">0.00</td>
+<td align="right">120.00</td>
+<td align="right">220.00</td>
+<td align="right">290.00</td>
+<td align="right">360.00</td>
+<td align="left">▆▂▆▇▇</td>
+</tr>
+<tr class="odd">
+<td align="left">wind_speed</td>
+<td align="right">4</td>
+<td align="right">1.00</td>
+<td align="right">10.52</td>
+<td align="right">8.54</td>
+<td align="right">0.00</td>
+<td align="right">6.90</td>
+<td align="right">10.36</td>
+<td align="right">13.81</td>
+<td align="right">1048.36</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">wind_gust</td>
+<td align="right">20778</td>
+<td align="right">0.20</td>
+<td align="right">25.49</td>
+<td align="right">5.95</td>
+<td align="right">16.11</td>
+<td align="right">20.71</td>
+<td align="right">24.17</td>
+<td align="right">28.77</td>
+<td align="right">66.75</td>
+<td align="left">▇▅▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">precip</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">0.00</td>
+<td align="right">0.03</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">1.21</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">pressure</td>
+<td align="right">2729</td>
+<td align="right">0.90</td>
+<td align="right">1017.90</td>
+<td align="right">7.42</td>
+<td align="right">983.80</td>
+<td align="right">1012.90</td>
+<td align="right">1017.60</td>
+<td align="right">1023.00</td>
+<td align="right">1042.10</td>
+<td align="left">▁▁▇▆▁</td>
+</tr>
+<tr class="odd">
+<td align="left">visib</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">9.26</td>
+<td align="right">2.06</td>
+<td align="right">0.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="left">▁▁▁▁▇</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: POSIXct</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">min</th>
+<th align="left">max</th>
+<th align="left">median</th>
+<th align="right">n_unique</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">time_hour</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">2013-01-01 01:00:00</td>
+<td align="left">2013-12-30 18:00:00</td>
+<td align="left">2013-07-01 14:00:00</td>
+<td align="right">8714</td>
+</tr>
+</tbody>
+</table>
+<p>We appear to be missing lots of data <code>wind_gust</code>, so we will remove that.</p>
+<pre class="r"><code>weather %&gt;%
+  filter(!is.na(wind_dir))%&gt;%
+  group_by(origin,month)%&gt;%
+  summarise(avg_wind_dir = mean(wind_dir),avg_wind_speed=mean(wind_speed),.groups=&quot;keep&quot;) %&gt;%
+  left_join(airports,by=c(&quot;origin&quot;=&quot;faa&quot;)) %&gt;%
+  ggplot(aes(x=month,y=avg_wind_dir,col=origin))+
+  geom_point()+
+  geom_line()</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-10-1.png" width="672" /></p>
+<pre class="r"><code>weather %&gt;%
+  filter(!is.na(wind_dir))%&gt;%
+  group_by(origin,month)%&gt;%
+  summarise(avg_wind_dir = mean(wind_dir),avg_wind_speed=mean(wind_speed),.groups=&quot;keep&quot;) %&gt;%
+  left_join(airports,by=c(&quot;origin&quot;=&quot;faa&quot;)) %&gt;%
+  ggplot(aes(x=month,y=avg_wind_speed,col=origin))+
+  geom_point()+
+  geom_line()</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-11-1.png" width="672" /></p>
+<p>Average wind angle by month</p>
+<pre class="r"><code>weather %&gt;%
+  filter(!is.na(wind_dir))%&gt;%
+  mutate(month=factor(month))%&gt;%
+  #group_by(origin)%&gt;%
+  #summarise(avg_wind_dir = mean(wind_dir),avg_wind_speed=mean(wind_speed)) %&gt;%
+  left_join(airports,by=c(&quot;origin&quot;=&quot;faa&quot;)) %&gt;%
+  ggplot(aes(x=month,y=wind_dir,fill=origin))+
+  geom_boxplot()+
+  facet_wrap(.~origin,nrow=3)+
+  labs(title=&quot;Wind Direction By Month&quot;,x=&quot;Month&quot;,y=&quot;Degree (°)&quot;)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-12-1.png" width="672" /></p>
+<p>Average wind speed</p>
+<pre class="r"><code>weather %&gt;%
+  filter(!is.na(wind_dir))%&gt;%
+  mutate(month=factor(month))%&gt;%
+  #group_by(origin)%&gt;%
+  #summarise(avg_wind_dir = mean(wind_dir),avg_wind_speed=mean(wind_speed)) %&gt;%
+  left_join(airports,by=c(&quot;origin&quot;=&quot;faa&quot;)) %&gt;%
+  ggplot(aes(x=month,y=wind_speed,fill=origin))+
+  geom_boxplot()+
+  facet_wrap(.~origin,nrow=3)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-13-1.png" width="672" /></p>
+<p>We notice a clear outlier! There was a wind speed recorded in excess of 1000mph! The highest wind speed ever recorded was 253 mph during severe hurricane conditions. During the time period around which the observation was taken and between the different weather stations, there are no recorded observations that match with the events that this outlier is seemingly trying to suggest.</p>
+<pre class="r"><code>weather %&gt;%
+ #filter(origin==&quot;EWR&quot;,month==2,day==12)
+filter(month==2,day==12,hour==3)</code></pre>
+<pre><code>## # A tibble: 3 x 15
+##   origin  year month   day  hour  temp  dewp humid wind_dir wind_speed wind_gust
+##   &lt;chr&gt;  &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;    &lt;dbl&gt;      &lt;dbl&gt;     &lt;dbl&gt;
+## 1 EWR     2013     2    12     3  39.0  27.0  61.6      260     1048.       NA  
+## 2 JFK     2013     2    12     3  41    26.1  55.0      290       16.1      26.5
+## 3 LGA     2013     2    12     3  42.1  26.1  52.7      290       16.1      28.8
+## # ... with 4 more variables: precip &lt;dbl&gt;, pressure &lt;dbl&gt;, visib &lt;dbl&gt;,
+## #   time_hour &lt;dttm&gt;</code></pre>
+<pre class="r"><code>  #arrange(desc(wind_speed))</code></pre>
+<pre class="r"><code>weather %&gt;%
+ filter(month==2,day==12,hour %in% c(2:4))</code></pre>
+<pre><code>## # A tibble: 9 x 15
+##   origin  year month   day  hour  temp  dewp humid wind_dir wind_speed wind_gust
+##   &lt;chr&gt;  &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;    &lt;dbl&gt;      &lt;dbl&gt;     &lt;dbl&gt;
+## 1 EWR     2013     2    12     2  39.9  28.0  62.2      270       20.7      25.3
+## 2 EWR     2013     2    12     3  39.0  27.0  61.6      260     1048.       NA  
+## 3 EWR     2013     2    12     4  39.0  27.0  64.3      280       12.7      NA  
+## 4 JFK     2013     2    12     2  41    28.9  61.9      280       17.3      24.2
+## 5 JFK     2013     2    12     3  41    26.1  55.0      290       16.1      26.5
+## 6 JFK     2013     2    12     4  39.9  25.0  54.8      280       12.7      21.9
+## 7 LGA     2013     2    12     2  43.0  26.1  50.9      290       23.0      31.1
+## 8 LGA     2013     2    12     3  42.1  26.1  52.7      290       16.1      28.8
+## 9 LGA     2013     2    12     4  41    25.0  52.6      270       13.8      NA  
+## # ... with 4 more variables: precip &lt;dbl&gt;, pressure &lt;dbl&gt;, visib &lt;dbl&gt;,
+## #   time_hour &lt;dttm&gt;</code></pre>
+<p>Replace value here</p>
+<pre class="r"><code>weather %&gt;%
+  filter( wind_speed &lt; 1000   )%&gt;%
+  mutate(month=factor(month))%&gt;%
+  #group_by(origin)%&gt;%
+  #summarise(avg_wind_dir = mean(wind_dir),avg_wind_speed=mean(wind_speed)) %&gt;%
+  left_join(airports,by=c(&quot;origin&quot;=&quot;faa&quot;)) %&gt;%
+  ggplot(aes(x=month,y=wind_speed,fill=origin))+
+  geom_boxplot()+
+  facet_wrap(.~origin,nrow=3)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-16-1.png" width="672" /></p>
+<pre class="r"><code>weather %&gt;%
+  filter( wind_speed &lt; 1000   )%&gt;%
+  mutate(hour=factor(hour))%&gt;%
+  #group_by(origin)%&gt;%
+  #summarise(avg_wind_dir = mean(wind_dir),avg_wind_speed=mean(wind_speed)) %&gt;%
+  left_join(airports,by=c(&quot;origin&quot;=&quot;faa&quot;)) %&gt;%
+  ggplot(aes(x=hour,y=wind_speed,fill=origin))+
+  geom_boxplot()+
+  facet_wrap(.~origin,nrow=3)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-17-1.png" width="672" /></p>
+<pre class="r"><code>weather %&gt;%
+  filter(origin ==&quot;LGA&quot;, wind_speed &lt; 1000   )%&gt;%
+  mutate(hour=factor(hour),
+         month=factor(month))%&gt;%
+  #group_by(origin)%&gt;%
+  #summarise(avg_wind_dir = mean(wind_dir),avg_wind_speed=mean(wind_speed)) %&gt;%
+  left_join(airports,by=c(&quot;origin&quot;=&quot;faa&quot;)) %&gt;%
+  ggplot(aes(x=hour,y=wind_speed,fill=origin))+
+  geom_boxplot()+
+  facet_wrap(month~.,nrow=3)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-18-1.png" width="672" /></p>
+</div>
+<div id="planes-data" class="section level2">
+<h2><span class="header-section-number">1.4</span> Planes Data</h2>
+<pre class="r"><code>skim(planes)</code></pre>
+<table>
+<caption>Data summary</caption>
+<tbody>
+<tr class="odd">
+<td align="left">Name</td>
+<td align="left">planes</td>
+</tr>
+<tr class="even">
+<td align="left">Number of rows</td>
+<td align="left">3322</td>
+</tr>
+<tr class="odd">
+<td align="left">Number of columns</td>
+<td align="left">9</td>
+</tr>
+<tr class="even">
+<td align="left">_______________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Column type frequency:</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">character</td>
+<td align="left">5</td>
+</tr>
+<tr class="odd">
+<td align="left">numeric</td>
+<td align="left">4</td>
+</tr>
+<tr class="even">
+<td align="left">________________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Group variables</td>
+<td align="left">None</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: character</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">min</th>
+<th align="right">max</th>
+<th align="right">empty</th>
+<th align="right">n_unique</th>
+<th align="right">whitespace</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">tailnum</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">5</td>
+<td align="right">6</td>
+<td align="right">0</td>
+<td align="right">3322</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">type</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">10</td>
+<td align="right">24</td>
+<td align="right">0</td>
+<td align="right">3</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">manufacturer</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">4</td>
+<td align="right">29</td>
+<td align="right">0</td>
+<td align="right">35</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">model</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">2</td>
+<td align="right">18</td>
+<td align="right">0</td>
+<td align="right">127</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">engine</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">7</td>
+<td align="right">13</td>
+<td align="right">0</td>
+<td align="right">6</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">p0</th>
+<th align="right">p25</th>
+<th align="right">p50</th>
+<th align="right">p75</th>
+<th align="right">p100</th>
+<th align="left">hist</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">year</td>
+<td align="right">70</td>
+<td align="right">0.98</td>
+<td align="right">2000.48</td>
+<td align="right">7.19</td>
+<td align="right">1956</td>
+<td align="right">1997.0</td>
+<td align="right">2001</td>
+<td align="right">2005</td>
+<td align="right">2013</td>
+<td align="left">▁▁▂▇▇</td>
+</tr>
+<tr class="even">
+<td align="left">engines</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">2.00</td>
+<td align="right">0.12</td>
+<td align="right">1</td>
+<td align="right">2.0</td>
+<td align="right">2</td>
+<td align="right">2</td>
+<td align="right">4</td>
+<td align="left">▁▇▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">seats</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">154.32</td>
+<td align="right">73.65</td>
+<td align="right">2</td>
+<td align="right">140.0</td>
+<td align="right">149</td>
+<td align="right">182</td>
+<td align="right">450</td>
+<td align="left">▂▇▃▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">speed</td>
+<td align="right">3299</td>
+<td align="right">0.01</td>
+<td align="right">236.78</td>
+<td align="right">149.76</td>
+<td align="right">90</td>
+<td align="right">107.5</td>
+<td align="right">162</td>
+<td align="right">432</td>
+<td align="right">432</td>
+<td align="left">▇▃▁▁▆</td>
+</tr>
+</tbody>
+</table>
+<p>We are missing the year of manufacuring for our flights. We could include a variable that denotes where a plane has an unknown year of manufacturing.</p>
+<pre class="r"><code>planes %&gt;%
+  count(type)</code></pre>
+<pre><code>## # A tibble: 3 x 2
+##   type                         n
+##   &lt;chr&gt;                    &lt;int&gt;
+## 1 Fixed wing multi engine   3292
+## 2 Fixed wing single engine    25
+## 3 Rotorcraft                   5</code></pre>
+<pre class="r"><code>planes %&gt;%
+  count(model)%&gt;%
+  arrange(desc(n))</code></pre>
+<pre><code>## # A tibble: 127 x 2
+##    model           n
+##    &lt;chr&gt;       &lt;int&gt;
+##  1 737-7H4       361
+##  2 A320-232      256
+##  3 CL-600-2B19   171
+##  4 CL-600-2D24   123
+##  5 737-824       122
+##  6 MD-88         117
+##  7 EMB-145LR     114
+##  8 737-3H4       105
+##  9 EMB-145XR     104
+## 10 757-232        94
+## # ... with 117 more rows</code></pre>
+<pre class="r"><code>planes %&gt;%
+  count(engine)</code></pre>
+<pre><code>## # A tibble: 6 x 2
+##   engine            n
+##   &lt;chr&gt;         &lt;int&gt;
+## 1 4 Cycle           2
+## 2 Reciprocating    28
+## 3 Turbo-fan      2750
+## 4 Turbo-jet       535
+## 5 Turbo-prop        2
+## 6 Turbo-shaft       5</code></pre>
+<pre class="r"><code>planes %&gt;%
+  mutate(across(where(is.character), as.factor)) %&gt;%
+  skim()</code></pre>
+<table>
+<caption>Data summary</caption>
+<tbody>
+<tr class="odd">
+<td align="left">Name</td>
+<td align="left">Piped data</td>
+</tr>
+<tr class="even">
+<td align="left">Number of rows</td>
+<td align="left">3322</td>
+</tr>
+<tr class="odd">
+<td align="left">Number of columns</td>
+<td align="left">9</td>
+</tr>
+<tr class="even">
+<td align="left">_______________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Column type frequency:</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">factor</td>
+<td align="left">5</td>
+</tr>
+<tr class="odd">
+<td align="left">numeric</td>
+<td align="left">4</td>
+</tr>
+<tr class="even">
+<td align="left">________________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Group variables</td>
+<td align="left">None</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: factor</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">ordered</th>
+<th align="right">n_unique</th>
+<th align="left">top_counts</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">tailnum</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">3322</td>
+<td align="left">N10: 1, N10: 1, N10: 1, N10: 1</td>
+</tr>
+<tr class="even">
+<td align="left">type</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+<td align="left">Fix: 3292, Fix: 25, Rot: 5</td>
+</tr>
+<tr class="odd">
+<td align="left">manufacturer</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">35</td>
+<td align="left">BOE: 1630, AIR: 400, BOM: 368, AIR: 336</td>
+</tr>
+<tr class="even">
+<td align="left">model</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">127</td>
+<td align="left">737: 361, A32: 256, CL-: 171, CL-: 123</td>
+</tr>
+<tr class="odd">
+<td align="left">engine</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">6</td>
+<td align="left">Tur: 2750, Tur: 535, Rec: 28, Tur: 5</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">p0</th>
+<th align="right">p25</th>
+<th align="right">p50</th>
+<th align="right">p75</th>
+<th align="right">p100</th>
+<th align="left">hist</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">year</td>
+<td align="right">70</td>
+<td align="right">0.98</td>
+<td align="right">2000.48</td>
+<td align="right">7.19</td>
+<td align="right">1956</td>
+<td align="right">1997.0</td>
+<td align="right">2001</td>
+<td align="right">2005</td>
+<td align="right">2013</td>
+<td align="left">▁▁▂▇▇</td>
+</tr>
+<tr class="even">
+<td align="left">engines</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">2.00</td>
+<td align="right">0.12</td>
+<td align="right">1</td>
+<td align="right">2.0</td>
+<td align="right">2</td>
+<td align="right">2</td>
+<td align="right">4</td>
+<td align="left">▁▇▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">seats</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">154.32</td>
+<td align="right">73.65</td>
+<td align="right">2</td>
+<td align="right">140.0</td>
+<td align="right">149</td>
+<td align="right">182</td>
+<td align="right">450</td>
+<td align="left">▂▇▃▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">speed</td>
+<td align="right">3299</td>
+<td align="right">0.01</td>
+<td align="right">236.78</td>
+<td align="right">149.76</td>
+<td align="right">90</td>
+<td align="right">107.5</td>
+<td align="right">162</td>
+<td align="right">432</td>
+<td align="right">432</td>
+<td align="left">▇▃▁▁▆</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>planes %&gt;%
+  mutate(across(where(is.character), as.factor)) %&gt;%
+  ggplot(aes(x=year,y=seats,col=engine))+
+  geom_point(size=3,alpha=.2)</code></pre>
+<pre><code>## Warning: Removed 70 rows containing missing values (geom_point).</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-24-1.png" width="672" /></p>
+<pre class="r"><code>planes %&gt;%
+  count(engines)</code></pre>
+<pre><code>## # A tibble: 4 x 2
+##   engines     n
+##     &lt;int&gt; &lt;int&gt;
+## 1       1    27
+## 2       2  3288
+## 3       3     3
+## 4       4     4</code></pre>
+</div>
+</div>
+<div id="creating-the-full-data-set" class="section level1">
+<h1><span class="header-section-number">2</span> Creating the Full data set</h1>
+<p>We first filter out flights that do not have any values for <code>arr_delay</code></p>
+<pre class="r"><code>flights_delay = flights %&gt;%
+  filter( !is.na(arr_delay)) %&gt;%
+  mutate( is_late = factor(ifelse( arr_delay &gt;30,1,0)))%&gt;%
+  mutate_if(is.character,as.factor)%&gt;%
+  select(-dep_time,-sched_dep_time,-arr_time,-sched_arr_time,-air_time,-arr_delay)</code></pre>
+<pre class="r"><code>skim(flights_delay)</code></pre>
+<table>
+<caption>Data summary</caption>
+<tbody>
+<tr class="odd">
+<td align="left">Name</td>
+<td align="left">flights_delay</td>
+</tr>
+<tr class="even">
+<td align="left">Number of rows</td>
+<td align="left">327346</td>
+</tr>
+<tr class="odd">
+<td align="left">Number of columns</td>
+<td align="left">14</td>
+</tr>
+<tr class="even">
+<td align="left">_______________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Column type frequency:</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">factor</td>
+<td align="left">5</td>
+</tr>
+<tr class="odd">
+<td align="left">numeric</td>
+<td align="left">8</td>
+</tr>
+<tr class="even">
+<td align="left">POSIXct</td>
+<td align="left">1</td>
+</tr>
+<tr class="odd">
+<td align="left">________________________</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">Group variables</td>
+<td align="left">None</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: factor</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">ordered</th>
+<th align="right">n_unique</th>
+<th align="left">top_counts</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">carrier</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">16</td>
+<td align="left">UA: 57782, B6: 54049, EV: 51108, DL: 47658</td>
+</tr>
+<tr class="even">
+<td align="left">tailnum</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">4037</td>
+<td align="left">N72: 544, N72: 485, N72: 475, N71: 462</td>
+</tr>
+<tr class="odd">
+<td align="left">origin</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+<td align="left">EWR: 117127, JFK: 109079, LGA: 101140</td>
+</tr>
+<tr class="even">
+<td align="left">dest</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">104</td>
+<td align="left">ATL: 16837, ORD: 16566, LAX: 16026, BOS: 15022</td>
+</tr>
+<tr class="odd">
+<td align="left">is_late</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">2</td>
+<td align="left">0: 275847, 1: 51499</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">p0</th>
+<th align="right">p25</th>
+<th align="right">p50</th>
+<th align="right">p75</th>
+<th align="right">p100</th>
+<th align="left">hist</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">year</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">2013.00</td>
+<td align="right">0.00</td>
+<td align="right">2013</td>
+<td align="right">2013</td>
+<td align="right">2013</td>
+<td align="right">2013</td>
+<td align="right">2013</td>
+<td align="left">▁▁▇▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">month</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">6.56</td>
+<td align="right">3.41</td>
+<td align="right">1</td>
+<td align="right">4</td>
+<td align="right">7</td>
+<td align="right">10</td>
+<td align="right">12</td>
+<td align="left">▇▆▆▆▇</td>
+</tr>
+<tr class="odd">
+<td align="left">day</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">15.74</td>
+<td align="right">8.78</td>
+<td align="right">1</td>
+<td align="right">8</td>
+<td align="right">16</td>
+<td align="right">23</td>
+<td align="right">31</td>
+<td align="left">▇▇▇▇▆</td>
+</tr>
+<tr class="even">
+<td align="left">dep_delay</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">12.56</td>
+<td align="right">40.07</td>
+<td align="right">-43</td>
+<td align="right">-5</td>
+<td align="right">-2</td>
+<td align="right">11</td>
+<td align="right">1301</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">flight</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">1943.10</td>
+<td align="right">1621.52</td>
+<td align="right">1</td>
+<td align="right">544</td>
+<td align="right">1467</td>
+<td align="right">3412</td>
+<td align="right">8500</td>
+<td align="left">▇▃▃▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">distance</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">1048.37</td>
+<td align="right">735.91</td>
+<td align="right">80</td>
+<td align="right">509</td>
+<td align="right">888</td>
+<td align="right">1389</td>
+<td align="right">4983</td>
+<td align="left">▇▃▂▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">hour</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">13.14</td>
+<td align="right">4.66</td>
+<td align="right">5</td>
+<td align="right">9</td>
+<td align="right">13</td>
+<td align="right">17</td>
+<td align="right">23</td>
+<td align="left">▇▆▆▇▃</td>
+</tr>
+<tr class="even">
+<td align="left">minute</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">26.23</td>
+<td align="right">19.30</td>
+<td align="right">0</td>
+<td align="right">8</td>
+<td align="right">29</td>
+<td align="right">44</td>
+<td align="right">59</td>
+<td align="left">▇▃▆▃▅</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: POSIXct</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">min</th>
+<th align="left">max</th>
+<th align="left">median</th>
+<th align="right">n_unique</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">time_hour</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">2013-01-01 05:00:00</td>
+<td align="left">2013-12-31 23:00:00</td>
+<td align="left">2013-07-04 09:00:00</td>
+<td align="right">6922</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>flights_delay %&gt;%
+  count(is_late,name=&quot;Count&quot;) %&gt;%
+  mutate(prop_n=Count/sum(Count))</code></pre>
+<pre><code>## # A tibble: 2 x 3
+##   is_late  Count prop_n
+##   &lt;fct&gt;    &lt;int&gt;  &lt;dbl&gt;
+## 1 0       275847  0.843
+## 2 1        51499  0.157</code></pre>
+<p>We see that we have an unequal class balance with about 84% of flights not arriving late, and 16% of flights arriving later than 30 minutes.</p>
+<p>Let’s join with weather.</p>
+<pre class="r"><code>my_weather = weather %&gt;%
+  select(-wind_gust,-year,-month,-day,-hour) %&gt;%
+  mutate(wind_speed =  replace(wind_speed, wind_speed&gt;1000, 16.11092))# Replace the outlier with the readings from the other weather stations
+
+skim(my_weather)</code></pre>
+<table>
+<caption>Data summary</caption>
+<tbody>
+<tr class="odd">
+<td align="left">Name</td>
+<td align="left">my_weather</td>
+</tr>
+<tr class="even">
+<td align="left">Number of rows</td>
+<td align="left">26115</td>
+</tr>
+<tr class="odd">
+<td align="left">Number of columns</td>
+<td align="left">10</td>
+</tr>
+<tr class="even">
+<td align="left">_______________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Column type frequency:</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">character</td>
+<td align="left">1</td>
+</tr>
+<tr class="odd">
+<td align="left">numeric</td>
+<td align="left">8</td>
+</tr>
+<tr class="even">
+<td align="left">POSIXct</td>
+<td align="left">1</td>
+</tr>
+<tr class="odd">
+<td align="left">________________________</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">Group variables</td>
+<td align="left">None</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: character</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">min</th>
+<th align="right">max</th>
+<th align="right">empty</th>
+<th align="right">n_unique</th>
+<th align="right">whitespace</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">origin</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">3</td>
+<td align="right">3</td>
+<td align="right">0</td>
+<td align="right">3</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">p0</th>
+<th align="right">p25</th>
+<th align="right">p50</th>
+<th align="right">p75</th>
+<th align="right">p100</th>
+<th align="left">hist</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">temp</td>
+<td align="right">1</td>
+<td align="right">1.00</td>
+<td align="right">55.26</td>
+<td align="right">17.79</td>
+<td align="right">10.94</td>
+<td align="right">39.92</td>
+<td align="right">55.40</td>
+<td align="right">69.98</td>
+<td align="right">100.04</td>
+<td align="left">▂▇▇▇▁</td>
+</tr>
+<tr class="even">
+<td align="left">dewp</td>
+<td align="right">1</td>
+<td align="right">1.00</td>
+<td align="right">41.44</td>
+<td align="right">19.39</td>
+<td align="right">-9.94</td>
+<td align="right">26.06</td>
+<td align="right">42.08</td>
+<td align="right">57.92</td>
+<td align="right">78.08</td>
+<td align="left">▁▆▇▇▆</td>
+</tr>
+<tr class="odd">
+<td align="left">humid</td>
+<td align="right">1</td>
+<td align="right">1.00</td>
+<td align="right">62.53</td>
+<td align="right">19.40</td>
+<td align="right">12.74</td>
+<td align="right">47.05</td>
+<td align="right">61.79</td>
+<td align="right">78.79</td>
+<td align="right">100.00</td>
+<td align="left">▁▆▇▇▆</td>
+</tr>
+<tr class="even">
+<td align="left">wind_dir</td>
+<td align="right">460</td>
+<td align="right">0.98</td>
+<td align="right">199.76</td>
+<td align="right">107.31</td>
+<td align="right">0.00</td>
+<td align="right">120.00</td>
+<td align="right">220.00</td>
+<td align="right">290.00</td>
+<td align="right">360.00</td>
+<td align="left">▆▂▆▇▇</td>
+</tr>
+<tr class="odd">
+<td align="left">wind_speed</td>
+<td align="right">4</td>
+<td align="right">1.00</td>
+<td align="right">10.48</td>
+<td align="right">5.63</td>
+<td align="right">0.00</td>
+<td align="right">6.90</td>
+<td align="right">10.36</td>
+<td align="right">13.81</td>
+<td align="right">42.58</td>
+<td align="left">▇▇▂▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">precip</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">0.00</td>
+<td align="right">0.03</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">1.21</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">pressure</td>
+<td align="right">2729</td>
+<td align="right">0.90</td>
+<td align="right">1017.90</td>
+<td align="right">7.42</td>
+<td align="right">983.80</td>
+<td align="right">1012.90</td>
+<td align="right">1017.60</td>
+<td align="right">1023.00</td>
+<td align="right">1042.10</td>
+<td align="left">▁▁▇▆▁</td>
+</tr>
+<tr class="even">
+<td align="left">visib</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">9.26</td>
+<td align="right">2.06</td>
+<td align="right">0.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="left">▁▁▁▁▇</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: POSIXct</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">min</th>
+<th align="left">max</th>
+<th align="left">median</th>
+<th align="right">n_unique</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">time_hour</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">2013-01-01 01:00:00</td>
+<td align="left">2013-12-30 18:00:00</td>
+<td align="left">2013-07-01 14:00:00</td>
+<td align="right">8714</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>airports</code></pre>
+<pre><code>## # A tibble: 1,458 x 8
+##    faa   name                       lat    lon   alt    tz dst   tzone          
+##    &lt;chr&gt; &lt;chr&gt;                    &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt; &lt;chr&gt;          
+##  1 04G   Lansdowne Airport         41.1  -80.6  1044    -5 A     America/New_Yo~
+##  2 06A   Moton Field Municipal A~  32.5  -85.7   264    -6 A     America/Chicago
+##  3 06C   Schaumburg Regional       42.0  -88.1   801    -6 A     America/Chicago
+##  4 06N   Randall Airport           41.4  -74.4   523    -5 A     America/New_Yo~
+##  5 09J   Jekyll Island Airport     31.1  -81.4    11    -5 A     America/New_Yo~
+##  6 0A9   Elizabethton Municipal ~  36.4  -82.2  1593    -5 A     America/New_Yo~
+##  7 0G6   Williams County Airport   41.5  -84.5   730    -5 A     America/New_Yo~
+##  8 0G7   Finger Lakes Regional A~  42.9  -76.8   492    -5 A     America/New_Yo~
+##  9 0P2   Shoestring Aviation Air~  39.8  -76.6  1000    -5 U     America/New_Yo~
+## 10 0S9   Jefferson County Intl     48.1 -123.    108    -8 A     America/Los_An~
+## # ... with 1,448 more rows</code></pre>
+<pre class="r"><code>flights_delay %&gt;%
+  count(dest,sort = TRUE)</code></pre>
+<pre><code>## # A tibble: 104 x 2
+##    dest      n
+##    &lt;fct&gt; &lt;int&gt;
+##  1 ATL   16837
+##  2 ORD   16566
+##  3 LAX   16026
+##  4 BOS   15022
+##  5 MCO   13967
+##  6 CLT   13674
+##  7 SFO   13173
+##  8 FLL   11897
+##  9 MIA   11593
+## 10 DCA    9111
+## # ... with 94 more rows</code></pre>
+<pre class="r"><code>flights %&gt;%
+  filter ( !is.na(arr_delay) )%&gt;%
+    left_join(airports,by=c(&quot;dest&quot;=&quot;faa&quot;))%&gt;%
+  filter(is.na(lon) &amp; is.na(lat) )%&gt;%
+  count(dest)</code></pre>
+<pre><code>## # A tibble: 4 x 2
+##   dest      n
+##   &lt;chr&gt; &lt;int&gt;
+## 1 BQN     888
+## 2 PSE     358
+## 3 SJU    5773
+## 4 STT     518</code></pre>
+<pre class="r"><code>world &lt;- map_data(&quot;world&quot;)
+ggplot() +
+  geom_map(data = world, map = world,aes(x=long,y=lat,map_id = region),color = &quot;black&quot;, fill = &quot;lightgray&quot;)+
+  geom_point(data=airports,mapping=aes(x=lon,y=lat,col=tzone))+
+  labs(title=&quot;Timezones of Airports&quot;)</code></pre>
+<pre><code>## Warning: Ignoring unknown aesthetics: x, y</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-33-1.png" width="672" /></p>
+<pre class="r"><code>  #scale_colour_viridis_c(option=&quot;C&quot;)+
+  #theme_dark()</code></pre>
+<p>We switch the longitudes and latitude values for the EEN airport and add the timezone</p>
+<pre class="r"><code>airports$lat[airports$faa==&quot;EEN&quot;] = 42.89833    
+airports$lon[airports$faa==&quot;EEN&quot;] = -72.27083   
+
+airports$tzone[airports$faa==&quot;EEN&quot;] = &quot;America/New_York&quot;
+airports$tzone[airports$faa==&quot;LRO&quot;] = &quot;America/New_York&quot;    
+airports$tzone[airports$faa==&quot;YAK&quot;] =&quot;America/Anchorage&quot;
+
+airports %&gt;%
+  filter(faa %in% c(&quot;EEN&quot;,&quot;LRO&quot;,&quot;YAK&quot;))</code></pre>
+<pre><code>## # A tibble: 3 x 8
+##   faa   name                          lat    lon   alt    tz dst   tzone        
+##   &lt;chr&gt; &lt;chr&gt;                       &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt; &lt;chr&gt;        
+## 1 EEN   Dillant Hopkins Airport      42.9  -72.3   149    -5 A     America/New_~
+## 2 LRO   Mount Pleasant Regional-Fa~  32.5  -79.5    12    -5 A     America/New_~
+## 3 YAK   Yakutat                      59.3 -139.     33    -9 A     America/Anch~</code></pre>
+<p>Add a long lat and alt for SJU, BWN, STT</p>
+<pre class="r"><code>new_airports = tibble(faa = c(&quot;BQN&quot;,&quot;PSE&quot;,&quot;SJU&quot;,&quot;STT&quot;), 
+                      name=NA, 
+                      lat=c(18.494833,18.008333,18.439167,18.337222), 
+                      lon=c( -67.129500,-66.563056,-66.001944,-64.973333),
+                      alt =c(72,9,3,7),
+                      tz = NA,
+                      tzone=&quot;PeurtoRico&quot;)
+
+
+
+full_airports = airports %&gt;%
+  bind_rows(new_airports)</code></pre>
+</div>
+<div id="joining-all-data" class="section level1">
+<h1><span class="header-section-number">3</span> Joining all data</h1>
+<p>Join flights with weather</p>
+<pre class="r"><code>flights_joined = flights_delay %&gt;%
+  inner_join(my_weather, by=c(&quot;origin&quot;,&quot;time_hour&quot;))
+
+skim(flights_joined)</code></pre>
+<table>
+<caption>Data summary</caption>
+<tbody>
+<tr class="odd">
+<td align="left">Name</td>
+<td align="left">flights_joined</td>
+</tr>
+<tr class="even">
+<td align="left">Number of rows</td>
+<td align="left">325819</td>
+</tr>
+<tr class="odd">
+<td align="left">Number of columns</td>
+<td align="left">22</td>
+</tr>
+<tr class="even">
+<td align="left">_______________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Column type frequency:</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">character</td>
+<td align="left">1</td>
+</tr>
+<tr class="odd">
+<td align="left">factor</td>
+<td align="left">4</td>
+</tr>
+<tr class="even">
+<td align="left">numeric</td>
+<td align="left">16</td>
+</tr>
+<tr class="odd">
+<td align="left">POSIXct</td>
+<td align="left">1</td>
+</tr>
+<tr class="even">
+<td align="left">________________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Group variables</td>
+<td align="left">None</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: character</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">min</th>
+<th align="right">max</th>
+<th align="right">empty</th>
+<th align="right">n_unique</th>
+<th align="right">whitespace</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">origin</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">3</td>
+<td align="right">3</td>
+<td align="right">0</td>
+<td align="right">3</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: factor</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">ordered</th>
+<th align="right">n_unique</th>
+<th align="left">top_counts</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">carrier</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">16</td>
+<td align="left">UA: 57489, B6: 53715, EV: 50868, DL: 47465</td>
+</tr>
+<tr class="even">
+<td align="left">tailnum</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">4037</td>
+<td align="left">N72: 543, N72: 485, N72: 474, N71: 462</td>
+</tr>
+<tr class="odd">
+<td align="left">dest</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">104</td>
+<td align="left">ATL: 16771, ORD: 16507, LAX: 15942, BOS: 14948</td>
+</tr>
+<tr class="even">
+<td align="left">is_late</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">2</td>
+<td align="left">0: 274573, 1: 51246</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">p0</th>
+<th align="right">p25</th>
+<th align="right">p50</th>
+<th align="right">p75</th>
+<th align="right">p100</th>
+<th align="left">hist</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">year</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">2013.00</td>
+<td align="right">0.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="left">▁▁▇▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">month</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">6.55</td>
+<td align="right">3.41</td>
+<td align="right">1.00</td>
+<td align="right">4.00</td>
+<td align="right">7.00</td>
+<td align="right">9.00</td>
+<td align="right">12.00</td>
+<td align="left">▇▆▆▆▇</td>
+</tr>
+<tr class="odd">
+<td align="left">day</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">15.70</td>
+<td align="right">8.75</td>
+<td align="right">1.00</td>
+<td align="right">8.00</td>
+<td align="right">16.00</td>
+<td align="right">23.00</td>
+<td align="right">31.00</td>
+<td align="left">▇▇▇▇▆</td>
+</tr>
+<tr class="even">
+<td align="left">dep_delay</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">12.55</td>
+<td align="right">40.08</td>
+<td align="right">-43.00</td>
+<td align="right">-5.00</td>
+<td align="right">-2.00</td>
+<td align="right">11.00</td>
+<td align="right">1301.00</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">flight</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1943.54</td>
+<td align="right">1621.73</td>
+<td align="right">1.00</td>
+<td align="right">544.00</td>
+<td align="right">1471.00</td>
+<td align="right">3416.00</td>
+<td align="right">8500.00</td>
+<td align="left">▇▃▃▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">distance</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1048.18</td>
+<td align="right">735.86</td>
+<td align="right">80.00</td>
+<td align="right">509.00</td>
+<td align="right">888.00</td>
+<td align="right">1389.00</td>
+<td align="right">4983.00</td>
+<td align="left">▇▃▂▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">hour</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">13.13</td>
+<td align="right">4.66</td>
+<td align="right">5.00</td>
+<td align="right">9.00</td>
+<td align="right">13.00</td>
+<td align="right">17.00</td>
+<td align="right">23.00</td>
+<td align="left">▇▆▆▇▃</td>
+</tr>
+<tr class="even">
+<td align="left">minute</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">26.23</td>
+<td align="right">19.30</td>
+<td align="right">0.00</td>
+<td align="right">8.00</td>
+<td align="right">29.00</td>
+<td align="right">44.00</td>
+<td align="right">59.00</td>
+<td align="left">▇▃▆▃▅</td>
+</tr>
+<tr class="odd">
+<td align="left">temp</td>
+<td align="right">17</td>
+<td align="right">1.00</td>
+<td align="right">57.01</td>
+<td align="right">17.90</td>
+<td align="right">10.94</td>
+<td align="right">42.08</td>
+<td align="right">57.20</td>
+<td align="right">71.96</td>
+<td align="right">100.04</td>
+<td align="left">▁▇▇▇▂</td>
+</tr>
+<tr class="even">
+<td align="left">dewp</td>
+<td align="right">17</td>
+<td align="right">1.00</td>
+<td align="right">41.50</td>
+<td align="right">19.33</td>
+<td align="right">-9.94</td>
+<td align="right">26.06</td>
+<td align="right">42.80</td>
+<td align="right">57.92</td>
+<td align="right">78.08</td>
+<td align="left">▁▆▇▇▆</td>
+</tr>
+<tr class="odd">
+<td align="left">humid</td>
+<td align="right">17</td>
+<td align="right">1.00</td>
+<td align="right">59.21</td>
+<td align="right">19.57</td>
+<td align="right">12.74</td>
+<td align="right">43.74</td>
+<td align="right">57.22</td>
+<td align="right">74.67</td>
+<td align="right">100.00</td>
+<td align="left">▂▇▇▆▅</td>
+</tr>
+<tr class="even">
+<td align="left">wind_dir</td>
+<td align="right">8047</td>
+<td align="right">0.98</td>
+<td align="right">201.94</td>
+<td align="right">104.75</td>
+<td align="right">0.00</td>
+<td align="right">130.00</td>
+<td align="right">220.00</td>
+<td align="right">290.00</td>
+<td align="right">360.00</td>
+<td align="left">▆▂▆▇▇</td>
+</tr>
+<tr class="odd">
+<td align="left">wind_speed</td>
+<td align="right">78</td>
+<td align="right">1.00</td>
+<td align="right">11.06</td>
+<td align="right">5.53</td>
+<td align="right">0.00</td>
+<td align="right">6.90</td>
+<td align="right">10.36</td>
+<td align="right">14.96</td>
+<td align="right">42.58</td>
+<td align="left">▆▇▂▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">precip</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">0.00</td>
+<td align="right">0.03</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">1.21</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">pressure</td>
+<td align="right">34615</td>
+<td align="right">0.89</td>
+<td align="right">1017.90</td>
+<td align="right">7.42</td>
+<td align="right">983.80</td>
+<td align="right">1012.90</td>
+<td align="right">1017.60</td>
+<td align="right">1022.90</td>
+<td align="right">1042.10</td>
+<td align="left">▁▁▇▆▁</td>
+</tr>
+<tr class="even">
+<td align="left">visib</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">9.29</td>
+<td align="right">1.98</td>
+<td align="right">0.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="left">▁▁▁▁▇</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: POSIXct</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">min</th>
+<th align="left">max</th>
+<th align="left">median</th>
+<th align="right">n_unique</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">time_hour</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">2013-01-01 05:00:00</td>
+<td align="left">2013-12-30 18:00:00</td>
+<td align="left">2013-07-03 15:00:00</td>
+<td align="right">6885</td>
+</tr>
+</tbody>
+</table>
+<p>We join the plane data</p>
+<pre class="r"><code>my_planes= planes %&gt;%
+  rename(mnfr_year = year)%&gt;%
+  select(-speed)</code></pre>
+<pre class="r"><code>flights_joined =  flights_joined%&gt;%
+  inner_join(my_planes,by=&quot;tailnum&quot;)
+
+skim(flights_joined)</code></pre>
+<table>
+<caption>Data summary</caption>
+<tbody>
+<tr class="odd">
+<td align="left">Name</td>
+<td align="left">flights_joined</td>
+</tr>
+<tr class="even">
+<td align="left">Number of rows</td>
+<td align="left">277690</td>
+</tr>
+<tr class="odd">
+<td align="left">Number of columns</td>
+<td align="left">29</td>
+</tr>
+<tr class="even">
+<td align="left">_______________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Column type frequency:</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">character</td>
+<td align="left">6</td>
+</tr>
+<tr class="odd">
+<td align="left">factor</td>
+<td align="left">3</td>
+</tr>
+<tr class="even">
+<td align="left">numeric</td>
+<td align="left">19</td>
+</tr>
+<tr class="odd">
+<td align="left">POSIXct</td>
+<td align="left">1</td>
+</tr>
+<tr class="even">
+<td align="left">________________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Group variables</td>
+<td align="left">None</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: character</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">min</th>
+<th align="right">max</th>
+<th align="right">empty</th>
+<th align="right">n_unique</th>
+<th align="right">whitespace</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">tailnum</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">5</td>
+<td align="right">6</td>
+<td align="right">0</td>
+<td align="right">3316</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">origin</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">3</td>
+<td align="right">3</td>
+<td align="right">0</td>
+<td align="right">3</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">type</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">10</td>
+<td align="right">24</td>
+<td align="right">0</td>
+<td align="right">3</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">manufacturer</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">4</td>
+<td align="right">29</td>
+<td align="right">0</td>
+<td align="right">35</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">model</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">2</td>
+<td align="right">18</td>
+<td align="right">0</td>
+<td align="right">127</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">engine</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">7</td>
+<td align="right">13</td>
+<td align="right">0</td>
+<td align="right">6</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: factor</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">ordered</th>
+<th align="right">n_unique</th>
+<th align="left">top_counts</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">carrier</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">16</td>
+<td align="left">UA: 56489, B6: 52897, EV: 50868, DL: 47356</td>
+</tr>
+<tr class="even">
+<td align="left">dest</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">104</td>
+<td align="left">LAX: 15341, ATL: 14330, BOS: 13524, MCO: 13071</td>
+</tr>
+<tr class="odd">
+<td align="left">is_late</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">2</td>
+<td align="left">0: 233629, 1: 44061</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">p0</th>
+<th align="right">p25</th>
+<th align="right">p50</th>
+<th align="right">p75</th>
+<th align="right">p100</th>
+<th align="left">hist</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">year</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">2013.00</td>
+<td align="right">0.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="left">▁▁▇▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">month</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">6.56</td>
+<td align="right">3.40</td>
+<td align="right">1.00</td>
+<td align="right">4.00</td>
+<td align="right">7.00</td>
+<td align="right">10.00</td>
+<td align="right">12.00</td>
+<td align="left">▇▆▆▆▇</td>
+</tr>
+<tr class="odd">
+<td align="left">day</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">15.69</td>
+<td align="right">8.75</td>
+<td align="right">1.00</td>
+<td align="right">8.00</td>
+<td align="right">16.00</td>
+<td align="right">23.00</td>
+<td align="right">31.00</td>
+<td align="left">▇▇▇▇▆</td>
+</tr>
+<tr class="even">
+<td align="left">dep_delay</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">13.09</td>
+<td align="right">40.44</td>
+<td align="right">-43.00</td>
+<td align="right">-5.00</td>
+<td align="right">-1.00</td>
+<td align="right">11.00</td>
+<td align="right">1301.00</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">flight</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1857.28</td>
+<td align="right">1620.68</td>
+<td align="right">1.00</td>
+<td align="right">507.00</td>
+<td align="right">1345.00</td>
+<td align="right">3052.00</td>
+<td align="right">8500.00</td>
+<td align="left">▇▂▂▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">distance</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1073.90</td>
+<td align="right">763.60</td>
+<td align="right">80.00</td>
+<td align="right">529.00</td>
+<td align="right">937.00</td>
+<td align="right">1416.00</td>
+<td align="right">4983.00</td>
+<td align="left">▇▃▂▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">hour</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">13.15</td>
+<td align="right">4.70</td>
+<td align="right">5.00</td>
+<td align="right">9.00</td>
+<td align="right">13.00</td>
+<td align="right">17.00</td>
+<td align="right">23.00</td>
+<td align="left">▇▆▆▇▃</td>
+</tr>
+<tr class="even">
+<td align="left">minute</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">26.03</td>
+<td align="right">19.33</td>
+<td align="right">0.00</td>
+<td align="right">6.00</td>
+<td align="right">29.00</td>
+<td align="right">43.00</td>
+<td align="right">59.00</td>
+<td align="left">▇▃▆▃▅</td>
+</tr>
+<tr class="odd">
+<td align="left">temp</td>
+<td align="right">16</td>
+<td align="right">1.00</td>
+<td align="right">57.04</td>
+<td align="right">17.89</td>
+<td align="right">10.94</td>
+<td align="right">42.08</td>
+<td align="right">57.20</td>
+<td align="right">71.96</td>
+<td align="right">100.04</td>
+<td align="left">▁▇▇▇▂</td>
+</tr>
+<tr class="even">
+<td align="left">dewp</td>
+<td align="right">16</td>
+<td align="right">1.00</td>
+<td align="right">41.63</td>
+<td align="right">19.33</td>
+<td align="right">-9.94</td>
+<td align="right">26.06</td>
+<td align="right">42.98</td>
+<td align="right">57.92</td>
+<td align="right">78.08</td>
+<td align="left">▁▆▇▇▆</td>
+</tr>
+<tr class="odd">
+<td align="left">humid</td>
+<td align="right">16</td>
+<td align="right">1.00</td>
+<td align="right">59.44</td>
+<td align="right">19.64</td>
+<td align="right">12.74</td>
+<td align="right">43.92</td>
+<td align="right">57.50</td>
+<td align="right">74.98</td>
+<td align="right">100.00</td>
+<td align="left">▂▇▇▆▅</td>
+</tr>
+<tr class="even">
+<td align="left">wind_dir</td>
+<td align="right">7031</td>
+<td align="right">0.97</td>
+<td align="right">201.73</td>
+<td align="right">104.86</td>
+<td align="right">0.00</td>
+<td align="right">130.00</td>
+<td align="right">220.00</td>
+<td align="right">290.00</td>
+<td align="right">360.00</td>
+<td align="left">▆▃▆▇▇</td>
+</tr>
+<tr class="odd">
+<td align="left">wind_speed</td>
+<td align="right">73</td>
+<td align="right">1.00</td>
+<td align="right">10.99</td>
+<td align="right">5.54</td>
+<td align="right">0.00</td>
+<td align="right">6.90</td>
+<td align="right">10.36</td>
+<td align="right">13.81</td>
+<td align="right">42.58</td>
+<td align="left">▆▇▂▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">precip</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">0.00</td>
+<td align="right">0.03</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">1.21</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">pressure</td>
+<td align="right">29646</td>
+<td align="right">0.89</td>
+<td align="right">1017.92</td>
+<td align="right">7.42</td>
+<td align="right">983.80</td>
+<td align="right">1012.90</td>
+<td align="right">1017.70</td>
+<td align="right">1022.90</td>
+<td align="right">1042.10</td>
+<td align="left">▁▁▇▆▁</td>
+</tr>
+<tr class="even">
+<td align="left">visib</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">9.28</td>
+<td align="right">1.99</td>
+<td align="right">0.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="left">▁▁▁▁▇</td>
+</tr>
+<tr class="odd">
+<td align="left">mnfr_year</td>
+<td align="right">5137</td>
+<td align="right">0.98</td>
+<td align="right">2001.40</td>
+<td align="right">6.40</td>
+<td align="right">1956.00</td>
+<td align="right">1999.00</td>
+<td align="right">2002.00</td>
+<td align="right">2006.00</td>
+<td align="right">2013.00</td>
+<td align="left">▁▁▁▆▇</td>
+</tr>
+<tr class="even">
+<td align="left">engines</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1.99</td>
+<td align="right">0.09</td>
+<td align="right">1.00</td>
+<td align="right">2.00</td>
+<td align="right">2.00</td>
+<td align="right">2.00</td>
+<td align="right">4.00</td>
+<td align="left">▁▇▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">seats</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">137.53</td>
+<td align="right">71.73</td>
+<td align="right">2.00</td>
+<td align="right">55.00</td>
+<td align="right">149.00</td>
+<td align="right">189.00</td>
+<td align="right">450.00</td>
+<td align="left">▆▇▆▁▁</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: POSIXct</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">min</th>
+<th align="left">max</th>
+<th align="left">median</th>
+<th align="right">n_unique</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">time_hour</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">2013-01-01 05:00:00</td>
+<td align="left">2013-12-30 18:00:00</td>
+<td align="left">2013-07-04 08:00:00</td>
+<td align="right">6884</td>
+</tr>
+</tbody>
+</table>
+<p>And finally, we join the destination data</p>
+<pre class="r"><code>full_airports = full_airports %&gt;%
+  select(-tz,-dst)</code></pre>
+<pre class="r"><code>flights_joined = flights_joined %&gt;%
+  inner_join(full_airports,by=c(&quot;dest&quot;=&quot;faa&quot;))
+
+
+skim(flights_joined)</code></pre>
+<table>
+<caption>Data summary</caption>
+<tbody>
+<tr class="odd">
+<td align="left">Name</td>
+<td align="left">flights_joined</td>
+</tr>
+<tr class="even">
+<td align="left">Number of rows</td>
+<td align="left">277690</td>
+</tr>
+<tr class="odd">
+<td align="left">Number of columns</td>
+<td align="left">34</td>
+</tr>
+<tr class="even">
+<td align="left">_______________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Column type frequency:</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">character</td>
+<td align="left">9</td>
+</tr>
+<tr class="odd">
+<td align="left">factor</td>
+<td align="left">2</td>
+</tr>
+<tr class="even">
+<td align="left">numeric</td>
+<td align="left">22</td>
+</tr>
+<tr class="odd">
+<td align="left">POSIXct</td>
+<td align="left">1</td>
+</tr>
+<tr class="even">
+<td align="left">________________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Group variables</td>
+<td align="left">None</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: character</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">min</th>
+<th align="right">max</th>
+<th align="right">empty</th>
+<th align="right">n_unique</th>
+<th align="right">whitespace</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">tailnum</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">5</td>
+<td align="right">6</td>
+<td align="right">0</td>
+<td align="right">3316</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">origin</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">3</td>
+<td align="right">3</td>
+<td align="right">0</td>
+<td align="right">3</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">dest</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">3</td>
+<td align="right">3</td>
+<td align="right">0</td>
+<td align="right">104</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">type</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">10</td>
+<td align="right">24</td>
+<td align="right">0</td>
+<td align="right">3</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">manufacturer</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">4</td>
+<td align="right">29</td>
+<td align="right">0</td>
+<td align="right">35</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">model</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">2</td>
+<td align="right">18</td>
+<td align="right">0</td>
+<td align="right">127</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">engine</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">7</td>
+<td align="right">13</td>
+<td align="right">0</td>
+<td align="right">6</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">name</td>
+<td align="right">6096</td>
+<td align="right">0.98</td>
+<td align="right">6</td>
+<td align="right">36</td>
+<td align="right">0</td>
+<td align="right">100</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">tzone</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">10</td>
+<td align="right">19</td>
+<td align="right">0</td>
+<td align="right">8</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: factor</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">ordered</th>
+<th align="right">n_unique</th>
+<th align="left">top_counts</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">carrier</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">16</td>
+<td align="left">UA: 56489, B6: 52897, EV: 50868, DL: 47356</td>
+</tr>
+<tr class="even">
+<td align="left">is_late</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">2</td>
+<td align="left">0: 233629, 1: 44061</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">p0</th>
+<th align="right">p25</th>
+<th align="right">p50</th>
+<th align="right">p75</th>
+<th align="right">p100</th>
+<th align="left">hist</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">year</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">2013.00</td>
+<td align="right">0.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="left">▁▁▇▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">month</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">6.56</td>
+<td align="right">3.40</td>
+<td align="right">1.00</td>
+<td align="right">4.00</td>
+<td align="right">7.00</td>
+<td align="right">10.00</td>
+<td align="right">12.00</td>
+<td align="left">▇▆▆▆▇</td>
+</tr>
+<tr class="odd">
+<td align="left">day</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">15.69</td>
+<td align="right">8.75</td>
+<td align="right">1.00</td>
+<td align="right">8.00</td>
+<td align="right">16.00</td>
+<td align="right">23.00</td>
+<td align="right">31.00</td>
+<td align="left">▇▇▇▇▆</td>
+</tr>
+<tr class="even">
+<td align="left">dep_delay</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">13.09</td>
+<td align="right">40.44</td>
+<td align="right">-43.00</td>
+<td align="right">-5.00</td>
+<td align="right">-1.00</td>
+<td align="right">11.00</td>
+<td align="right">1301.00</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">flight</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1857.28</td>
+<td align="right">1620.68</td>
+<td align="right">1.00</td>
+<td align="right">507.00</td>
+<td align="right">1345.00</td>
+<td align="right">3052.00</td>
+<td align="right">8500.00</td>
+<td align="left">▇▂▂▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">distance</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1073.90</td>
+<td align="right">763.60</td>
+<td align="right">80.00</td>
+<td align="right">529.00</td>
+<td align="right">937.00</td>
+<td align="right">1416.00</td>
+<td align="right">4983.00</td>
+<td align="left">▇▃▂▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">hour</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">13.15</td>
+<td align="right">4.70</td>
+<td align="right">5.00</td>
+<td align="right">9.00</td>
+<td align="right">13.00</td>
+<td align="right">17.00</td>
+<td align="right">23.00</td>
+<td align="left">▇▆▆▇▃</td>
+</tr>
+<tr class="even">
+<td align="left">minute</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">26.03</td>
+<td align="right">19.33</td>
+<td align="right">0.00</td>
+<td align="right">6.00</td>
+<td align="right">29.00</td>
+<td align="right">43.00</td>
+<td align="right">59.00</td>
+<td align="left">▇▃▆▃▅</td>
+</tr>
+<tr class="odd">
+<td align="left">temp</td>
+<td align="right">16</td>
+<td align="right">1.00</td>
+<td align="right">57.04</td>
+<td align="right">17.89</td>
+<td align="right">10.94</td>
+<td align="right">42.08</td>
+<td align="right">57.20</td>
+<td align="right">71.96</td>
+<td align="right">100.04</td>
+<td align="left">▁▇▇▇▂</td>
+</tr>
+<tr class="even">
+<td align="left">dewp</td>
+<td align="right">16</td>
+<td align="right">1.00</td>
+<td align="right">41.63</td>
+<td align="right">19.33</td>
+<td align="right">-9.94</td>
+<td align="right">26.06</td>
+<td align="right">42.98</td>
+<td align="right">57.92</td>
+<td align="right">78.08</td>
+<td align="left">▁▆▇▇▆</td>
+</tr>
+<tr class="odd">
+<td align="left">humid</td>
+<td align="right">16</td>
+<td align="right">1.00</td>
+<td align="right">59.44</td>
+<td align="right">19.64</td>
+<td align="right">12.74</td>
+<td align="right">43.92</td>
+<td align="right">57.50</td>
+<td align="right">74.98</td>
+<td align="right">100.00</td>
+<td align="left">▂▇▇▆▅</td>
+</tr>
+<tr class="even">
+<td align="left">wind_dir</td>
+<td align="right">7031</td>
+<td align="right">0.97</td>
+<td align="right">201.73</td>
+<td align="right">104.86</td>
+<td align="right">0.00</td>
+<td align="right">130.00</td>
+<td align="right">220.00</td>
+<td align="right">290.00</td>
+<td align="right">360.00</td>
+<td align="left">▆▃▆▇▇</td>
+</tr>
+<tr class="odd">
+<td align="left">wind_speed</td>
+<td align="right">73</td>
+<td align="right">1.00</td>
+<td align="right">10.99</td>
+<td align="right">5.54</td>
+<td align="right">0.00</td>
+<td align="right">6.90</td>
+<td align="right">10.36</td>
+<td align="right">13.81</td>
+<td align="right">42.58</td>
+<td align="left">▆▇▂▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">precip</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">0.00</td>
+<td align="right">0.03</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">1.21</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">pressure</td>
+<td align="right">29646</td>
+<td align="right">0.89</td>
+<td align="right">1017.92</td>
+<td align="right">7.42</td>
+<td align="right">983.80</td>
+<td align="right">1012.90</td>
+<td align="right">1017.70</td>
+<td align="right">1022.90</td>
+<td align="right">1042.10</td>
+<td align="left">▁▁▇▆▁</td>
+</tr>
+<tr class="even">
+<td align="left">visib</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">9.28</td>
+<td align="right">1.99</td>
+<td align="right">0.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="left">▁▁▁▁▇</td>
+</tr>
+<tr class="odd">
+<td align="left">mnfr_year</td>
+<td align="right">5137</td>
+<td align="right">0.98</td>
+<td align="right">2001.40</td>
+<td align="right">6.40</td>
+<td align="right">1956.00</td>
+<td align="right">1999.00</td>
+<td align="right">2002.00</td>
+<td align="right">2006.00</td>
+<td align="right">2013.00</td>
+<td align="left">▁▁▁▆▇</td>
+</tr>
+<tr class="even">
+<td align="left">engines</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1.99</td>
+<td align="right">0.09</td>
+<td align="right">1.00</td>
+<td align="right">2.00</td>
+<td align="right">2.00</td>
+<td align="right">2.00</td>
+<td align="right">4.00</td>
+<td align="left">▁▇▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">seats</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">137.53</td>
+<td align="right">71.73</td>
+<td align="right">2.00</td>
+<td align="right">55.00</td>
+<td align="right">149.00</td>
+<td align="right">189.00</td>
+<td align="right">450.00</td>
+<td align="left">▆▇▆▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">lat</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">35.63</td>
+<td align="right">6.25</td>
+<td align="right">18.01</td>
+<td align="right">30.49</td>
+<td align="right">36.08</td>
+<td align="right">41.41</td>
+<td align="right">61.17</td>
+<td align="left">▂▆▇▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">lon</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">-89.59</td>
+<td align="right">15.89</td>
+<td align="right">-157.92</td>
+<td align="right">-95.34</td>
+<td align="right">-83.35</td>
+<td align="right">-80.15</td>
+<td align="right">-64.97</td>
+<td align="left">▁▁▂▅▇</td>
+</tr>
+<tr class="even">
+<td align="left">alt</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">578.67</td>
+<td align="right">986.83</td>
+<td align="right">3.00</td>
+<td align="right">26.00</td>
+<td align="right">285.00</td>
+<td align="right">748.00</td>
+<td align="right">6602.00</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: POSIXct</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">min</th>
+<th align="left">max</th>
+<th align="left">median</th>
+<th align="right">n_unique</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">time_hour</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">2013-01-01 05:00:00</td>
+<td align="left">2013-12-30 18:00:00</td>
+<td align="left">2013-07-04 08:00:00</td>
+<td align="right">6884</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>flights_joined = flights_joined %&gt;%
+  mutate_if(is.character,as.factor)%&gt;%
+  mutate(engines = factor(engines))%&gt;%
+  rename(engine_type = engine)
+
+skim(flights_joined)</code></pre>
+<table>
+<caption>Data summary</caption>
+<tbody>
+<tr class="odd">
+<td align="left">Name</td>
+<td align="left">flights_joined</td>
+</tr>
+<tr class="even">
+<td align="left">Number of rows</td>
+<td align="left">277690</td>
+</tr>
+<tr class="odd">
+<td align="left">Number of columns</td>
+<td align="left">34</td>
+</tr>
+<tr class="even">
+<td align="left">_______________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Column type frequency:</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">factor</td>
+<td align="left">12</td>
+</tr>
+<tr class="odd">
+<td align="left">numeric</td>
+<td align="left">21</td>
+</tr>
+<tr class="even">
+<td align="left">POSIXct</td>
+<td align="left">1</td>
+</tr>
+<tr class="odd">
+<td align="left">________________________</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">Group variables</td>
+<td align="left">None</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: factor</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">ordered</th>
+<th align="right">n_unique</th>
+<th align="left">top_counts</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">carrier</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">16</td>
+<td align="left">UA: 56489, B6: 52897, EV: 50868, DL: 47356</td>
+</tr>
+<tr class="even">
+<td align="left">tailnum</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">3316</td>
+<td align="left">N71: 462, N25: 420, N35: 402, N29: 400</td>
+</tr>
+<tr class="odd">
+<td align="left">origin</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+<td align="left">EWR: 111464, JFK: 92834, LGA: 73392</td>
+</tr>
+<tr class="even">
+<td align="left">dest</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">104</td>
+<td align="left">LAX: 15341, ATL: 14330, BOS: 13524, MCO: 13071</td>
+</tr>
+<tr class="odd">
+<td align="left">is_late</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">2</td>
+<td align="left">0: 233629, 1: 44061</td>
+</tr>
+<tr class="even">
+<td align="left">type</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+<td align="left">Fix: 275679, Fix: 1611, Rot: 400</td>
+</tr>
+<tr class="odd">
+<td align="left">manufacturer</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">35</td>
+<td align="left">BOE: 81896, EMB: 63210, AIR: 46624, AIR: 40477</td>
+</tr>
+<tr class="even">
+<td align="left">model</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">127</td>
+<td align="left">A32: 45159, EMB: 26353, ERJ: 23359, 737: 13703</td>
+</tr>
+<tr class="odd">
+<td align="left">engines</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">4</td>
+<td align="left">2: 275618, 1: 1932, 4: 133, 3: 7</td>
+</tr>
+<tr class="even">
+<td align="left">engine_type</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">6</td>
+<td align="left">Tur: 234949, Tur: 40552, Rec: 1696, Tur: 400</td>
+</tr>
+<tr class="odd">
+<td align="left">name</td>
+<td align="right">6096</td>
+<td align="right">0.98</td>
+<td align="left">FALSE</td>
+<td align="right">100</td>
+<td align="left">Los: 15341, Har: 14330, Gen: 13524, Orl: 13071</td>
+</tr>
+<tr class="even">
+<td align="left">tzone</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">8</td>
+<td align="left">Ame: 157897, Ame: 55498, Ame: 43108, Ame: 9822</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">p0</th>
+<th align="right">p25</th>
+<th align="right">p50</th>
+<th align="right">p75</th>
+<th align="right">p100</th>
+<th align="left">hist</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">year</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">2013.00</td>
+<td align="right">0.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="left">▁▁▇▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">month</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">6.56</td>
+<td align="right">3.40</td>
+<td align="right">1.00</td>
+<td align="right">4.00</td>
+<td align="right">7.00</td>
+<td align="right">10.00</td>
+<td align="right">12.00</td>
+<td align="left">▇▆▆▆▇</td>
+</tr>
+<tr class="odd">
+<td align="left">day</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">15.69</td>
+<td align="right">8.75</td>
+<td align="right">1.00</td>
+<td align="right">8.00</td>
+<td align="right">16.00</td>
+<td align="right">23.00</td>
+<td align="right">31.00</td>
+<td align="left">▇▇▇▇▆</td>
+</tr>
+<tr class="even">
+<td align="left">dep_delay</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">13.09</td>
+<td align="right">40.44</td>
+<td align="right">-43.00</td>
+<td align="right">-5.00</td>
+<td align="right">-1.00</td>
+<td align="right">11.00</td>
+<td align="right">1301.00</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">flight</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1857.28</td>
+<td align="right">1620.68</td>
+<td align="right">1.00</td>
+<td align="right">507.00</td>
+<td align="right">1345.00</td>
+<td align="right">3052.00</td>
+<td align="right">8500.00</td>
+<td align="left">▇▂▂▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">distance</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1073.90</td>
+<td align="right">763.60</td>
+<td align="right">80.00</td>
+<td align="right">529.00</td>
+<td align="right">937.00</td>
+<td align="right">1416.00</td>
+<td align="right">4983.00</td>
+<td align="left">▇▃▂▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">hour</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">13.15</td>
+<td align="right">4.70</td>
+<td align="right">5.00</td>
+<td align="right">9.00</td>
+<td align="right">13.00</td>
+<td align="right">17.00</td>
+<td align="right">23.00</td>
+<td align="left">▇▆▆▇▃</td>
+</tr>
+<tr class="even">
+<td align="left">minute</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">26.03</td>
+<td align="right">19.33</td>
+<td align="right">0.00</td>
+<td align="right">6.00</td>
+<td align="right">29.00</td>
+<td align="right">43.00</td>
+<td align="right">59.00</td>
+<td align="left">▇▃▆▃▅</td>
+</tr>
+<tr class="odd">
+<td align="left">temp</td>
+<td align="right">16</td>
+<td align="right">1.00</td>
+<td align="right">57.04</td>
+<td align="right">17.89</td>
+<td align="right">10.94</td>
+<td align="right">42.08</td>
+<td align="right">57.20</td>
+<td align="right">71.96</td>
+<td align="right">100.04</td>
+<td align="left">▁▇▇▇▂</td>
+</tr>
+<tr class="even">
+<td align="left">dewp</td>
+<td align="right">16</td>
+<td align="right">1.00</td>
+<td align="right">41.63</td>
+<td align="right">19.33</td>
+<td align="right">-9.94</td>
+<td align="right">26.06</td>
+<td align="right">42.98</td>
+<td align="right">57.92</td>
+<td align="right">78.08</td>
+<td align="left">▁▆▇▇▆</td>
+</tr>
+<tr class="odd">
+<td align="left">humid</td>
+<td align="right">16</td>
+<td align="right">1.00</td>
+<td align="right">59.44</td>
+<td align="right">19.64</td>
+<td align="right">12.74</td>
+<td align="right">43.92</td>
+<td align="right">57.50</td>
+<td align="right">74.98</td>
+<td align="right">100.00</td>
+<td align="left">▂▇▇▆▅</td>
+</tr>
+<tr class="even">
+<td align="left">wind_dir</td>
+<td align="right">7031</td>
+<td align="right">0.97</td>
+<td align="right">201.73</td>
+<td align="right">104.86</td>
+<td align="right">0.00</td>
+<td align="right">130.00</td>
+<td align="right">220.00</td>
+<td align="right">290.00</td>
+<td align="right">360.00</td>
+<td align="left">▆▃▆▇▇</td>
+</tr>
+<tr class="odd">
+<td align="left">wind_speed</td>
+<td align="right">73</td>
+<td align="right">1.00</td>
+<td align="right">10.99</td>
+<td align="right">5.54</td>
+<td align="right">0.00</td>
+<td align="right">6.90</td>
+<td align="right">10.36</td>
+<td align="right">13.81</td>
+<td align="right">42.58</td>
+<td align="left">▆▇▂▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">precip</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">0.00</td>
+<td align="right">0.03</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">1.21</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">pressure</td>
+<td align="right">29646</td>
+<td align="right">0.89</td>
+<td align="right">1017.92</td>
+<td align="right">7.42</td>
+<td align="right">983.80</td>
+<td align="right">1012.90</td>
+<td align="right">1017.70</td>
+<td align="right">1022.90</td>
+<td align="right">1042.10</td>
+<td align="left">▁▁▇▆▁</td>
+</tr>
+<tr class="even">
+<td align="left">visib</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">9.28</td>
+<td align="right">1.99</td>
+<td align="right">0.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="left">▁▁▁▁▇</td>
+</tr>
+<tr class="odd">
+<td align="left">mnfr_year</td>
+<td align="right">5137</td>
+<td align="right">0.98</td>
+<td align="right">2001.40</td>
+<td align="right">6.40</td>
+<td align="right">1956.00</td>
+<td align="right">1999.00</td>
+<td align="right">2002.00</td>
+<td align="right">2006.00</td>
+<td align="right">2013.00</td>
+<td align="left">▁▁▁▆▇</td>
+</tr>
+<tr class="even">
+<td align="left">seats</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">137.53</td>
+<td align="right">71.73</td>
+<td align="right">2.00</td>
+<td align="right">55.00</td>
+<td align="right">149.00</td>
+<td align="right">189.00</td>
+<td align="right">450.00</td>
+<td align="left">▆▇▆▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">lat</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">35.63</td>
+<td align="right">6.25</td>
+<td align="right">18.01</td>
+<td align="right">30.49</td>
+<td align="right">36.08</td>
+<td align="right">41.41</td>
+<td align="right">61.17</td>
+<td align="left">▂▆▇▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">lon</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">-89.59</td>
+<td align="right">15.89</td>
+<td align="right">-157.92</td>
+<td align="right">-95.34</td>
+<td align="right">-83.35</td>
+<td align="right">-80.15</td>
+<td align="right">-64.97</td>
+<td align="left">▁▁▂▅▇</td>
+</tr>
+<tr class="odd">
+<td align="left">alt</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">578.67</td>
+<td align="right">986.83</td>
+<td align="right">3.00</td>
+<td align="right">26.00</td>
+<td align="right">285.00</td>
+<td align="right">748.00</td>
+<td align="right">6602.00</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: POSIXct</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">min</th>
+<th align="left">max</th>
+<th align="left">median</th>
+<th align="right">n_unique</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">time_hour</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">2013-01-01 05:00:00</td>
+<td align="left">2013-12-30 18:00:00</td>
+<td align="left">2013-07-04 08:00:00</td>
+<td align="right">6884</td>
+</tr>
+</tbody>
+</table>
+<p>Next step. Perform EDA and find what variable contribute to a flight arriving late.</p>
+</div>
+<div id="eda" class="section level1">
+<h1><span class="header-section-number">4</span> EDA</h1>
+<pre class="r"><code>flights_joined %&gt;%
+  group_by(is_late) %&gt;%
+  count()%&gt;%
+  ungroup()%&gt;%
+  mutate( prop = n/sum(n)) #%&gt;% pull()</code></pre>
+<pre><code>## # A tibble: 2 x 3
+##   is_late      n  prop
+##   &lt;fct&gt;    &lt;int&gt; &lt;dbl&gt;
+## 1 0       233629 0.841
+## 2 1        44061 0.159</code></pre>
+<p>We see that about 15.9% of all flights are classes as being late.</p>
+<p>We will drop the manufacturer and name</p>
+<pre class="r"><code>flights_joined %&gt;%
+  count(manufacturer,sort = TRUE)</code></pre>
+<pre><code>## # A tibble: 35 x 2
+##    manufacturer                      n
+##    &lt;fct&gt;                         &lt;int&gt;
+##  1 BOEING                        81896
+##  2 EMBRAER                       63210
+##  3 AIRBUS                        46624
+##  4 AIRBUS INDUSTRIE              40477
+##  5 BOMBARDIER INC                27319
+##  6 MCDONNELL DOUGLAS AIRCRAFT CO  8787
+##  7 MCDONNELL DOUGLAS              3831
+##  8 CANADAIR                       1489
+##  9 MCDONNELL DOUGLAS CORPORATION  1242
+## 10 CESSNA                          619
+## # ... with 25 more rows</code></pre>
+<p>Is there any association between carriers and a plane being late?</p>
+<pre class="r"><code>flights_joined %&gt;%  
+  mutate(carrier =  fct_reorder(.f=carrier,
+                                .x=is_late,
+                                .fun=function(.x) mean(.x==&quot;1&quot;),
+                                .desc=FALSE)) %&gt;%
+  ggplot(aes(x=carrier,fill=is_late))+
+  geom_bar(position=&quot;fill&quot;,alpha=0.8)+
+  geom_hline(yintercept = 0.1586697,lty=2,size=1.5,col=&quot;black&quot;)+
+  annotate(geom=&quot;label&quot;,x=4, y=0.25,label=&quot;Average Proportion&quot;,size=6)+
+  labs(title=&quot;Proportion of Flights by Carrier Classed by Lateness&quot;,y=&quot;Proportion of Flights&quot;,fill=&quot;Is Late?&quot;)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-44-1.png" width="672" /> We see that Hawaiian Airlines does the best by having the fewest proportion of flights being late, and Frontier Airlines does the worst by having the highest proportions of it’s flight as late.</p>
+<p>Let’s see if flights are more likely to be late depending on the origin</p>
+<pre class="r"><code>flights_joined %&gt;%
+  #filter(is_late==1)%&gt;%
+  group_by(origin,is_late)%&gt;%
+  count()%&gt;%
+  ungroup(is_late)%&gt;%
+  mutate(prop=n/sum(n))%&gt;%
+  filter(is_late==1)%&gt;%
+  ggplot(aes(x=origin,y=prop,fill=origin))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=  paste0(signif(prop*100,3),&quot;%&quot;)),vjust=-0.25)+
+  labs(title=&quot;Percentage of Flights that are Late by Origin&quot;,x=&quot;Origin&quot;,y=NULL)+
+  scale_y_continuous(labels = label_percent())</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-45-1.png" width="672" /> We see that flights departing from EWR tend to have a higher chance of arriving late.</p>
+<pre class="r"><code>flights_joined %&gt;%
+  group_by(origin)%&gt;%
+  count(is_late) %&gt;%
+  ungroup(is_late)%&gt;%
+  mutate(prop=n/sum(n))%&gt;%
+  ungroup()%&gt;%
+  filter(is_late==1)%&gt;%
+  select(origin,n,prop)</code></pre>
+<pre><code>## # A tibble: 3 x 3
+##   origin     n  prop
+##   &lt;fct&gt;  &lt;int&gt; &lt;dbl&gt;
+## 1 EWR    19328 0.173
+## 2 JFK    14054 0.151
+## 3 LGA    10679 0.146</code></pre>
+<p>Let’s look that the type of aircraft</p>
+<pre class="r"><code>flights_joined %&gt;%
+  group_by(type)%&gt;%
+  count(is_late) %&gt;%
+  ungroup(is_late)%&gt;%
+  mutate(prop=n/sum(n))%&gt;%
+  ungroup()%&gt;%
+  filter(is_late==1)%&gt;%
+  select(type,n,prop)</code></pre>
+<pre><code>## # A tibble: 3 x 3
+##   type                         n  prop
+##   &lt;fct&gt;                    &lt;int&gt; &lt;dbl&gt;
+## 1 Fixed wing multi engine  43753 0.159
+## 2 Fixed wing single engine   246 0.153
+## 3 Rotorcraft                  62 0.155</code></pre>
+<p>It appears that engine type does not affect whether the flight will arrive late or not.</p>
+<pre class="r"><code>flights_joined %&gt;%
+  #filter(is_late==1)%&gt;%
+  group_by(engines,is_late)%&gt;%
+  count()%&gt;%
+  ungroup(is_late)%&gt;%
+  mutate(prop=n/sum(n))%&gt;%
+  filter(is_late==1)%&gt;%
+  ggplot(aes(x=engines,y=prop,fill=engines))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=  paste0(signif(prop*100,3),&quot;%&quot;)),vjust=-0.25)+
+  labs(title=&quot;Percentage of Flights that are Late by Number of Engines&quot;,x=&quot;Engine&quot;,y=NULL,fill=NULL)+
+  scale_y_continuous(labels = label_percent())</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-48-1.png" width="672" /></p>
+<pre class="r"><code>flights_joined %&gt;%
+  count(engine_type) %&gt;%
+  ggplot(aes(y=   fct_reorder(engine_type,n),x=n,fill=engine_type ))+
+  geom_col(show.legend = T)+
+  geom_text(aes(label=n),hjust=-.1)+
+  labs(title=&quot;Number of Engine Type&quot;,y=&quot;Engine Type&quot;,x=&quot;Count&quot;)+
+  xlim(0,250000)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-49-1.png" width="672" /></p>
+<pre class="r"><code>flights_joined %&gt;%
+  group_by(engine_type)%&gt;%
+  count(is_late) %&gt;%
+  ungroup(is_late)%&gt;%
+  mutate(prop=n/sum(n))%&gt;%
+  ungroup()%&gt;%
+  filter(is_late==1)%&gt;%
+  select(engine_type,n,prop)%&gt;%
+  ggplot(aes(x=engine_type,y=prop,fill=engine_type))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=  paste0(signif(prop*100,3),&quot;%&quot;)),vjust=-0.25)+
+  labs(title=&quot;Percentage of Flights that are Late by Engine Type&quot;,x=&quot;Engine Type&quot;,y=NULL,fill=NULL)+
+  scale_y_continuous(labels = label_percent())</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-50-1.png" width="672" /></p>
+<pre class="r"><code>flights_joined %&gt;%
+  mutate(counted =     fct_lump_prop(engine_type,prop=0.01))%&gt;%
+  count(counted)%&gt;%
+  ggplot(aes(y= fct_reorder(counted,n),x=n,fill=counted))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=n),hjust=-.1)+
+  xlim(0,250000)+
+  labs(title=&quot;Count of Engine Type&quot;,subtitle=&quot;Types that appeared less than 1% of all types were filled to other&quot;,x=&quot;Count&quot;,y=&quot;Engine Type&quot;)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-51-1.png" width="672" /></p>
+<pre class="r"><code>flights_joined %&gt;%
+  mutate(counted =  fct_lump_prop(engine_type,prop=0.01))%&gt;%
+  group_by(counted)%&gt;%
+  count(is_late) %&gt;%
+  ungroup(is_late)%&gt;%
+  mutate(prop=n/sum(n))%&gt;%
+  ungroup()%&gt;%
+  filter(is_late==1)%&gt;%
+  select(counted,n,prop)%&gt;%
+  ggplot(aes(x=counted,y=prop,fill=counted))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=  paste0(signif(prop*100,3),&quot;%&quot;)),vjust=-0.25)+
+  labs(title=&quot;Percentage of Flights that are Late by Engine Type&quot;,x=&quot;Engine Type&quot;,y=NULL,fill=NULL)+
+  scale_y_continuous(labels = label_percent())</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-52-1.png" width="672" /></p>
+<pre class="r"><code>flights_joined %&gt;%
+  #mutate(counted =     fct_lump_prop(engine_type,prop=0.01))%&gt;%
+  mutate(counted = tzone)%&gt;%
+  count(counted)%&gt;%
+  ggplot(aes(y= fct_reorder(counted,n),x=n,fill=counted))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=n),hjust=-.1)+
+  xlim(0,175000)+
+  labs(title=&quot;Count of flights to Timezones&quot;,x=&quot;Count&quot;,y=&quot;Timezone&quot;)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-53-1.png" width="672" /> It appears that it is important to not factor lump the variables for <code>tzone</code>, since there is an affect on them.</p>
+<pre class="r"><code>flights_joined %&gt;%
+  mutate(counted =  fct_lump_prop(tzone,prop=0.01))%&gt;%
+  group_by(counted)%&gt;%
+  count(is_late) %&gt;%
+  ungroup(is_late)%&gt;%
+  mutate(prop=n/sum(n))%&gt;%
+  ungroup()%&gt;%
+  filter(is_late==1)%&gt;%
+  select(counted,n,prop)%&gt;%
+  ggplot(aes(y=counted,x=prop,fill=counted))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=  paste0(signif(prop*100,3),&quot;%&quot;)),hjust=-0.1)+
+  labs(title=&quot;Percentage of Flights that are Late by Engine Type&quot;,y=&quot;Engine Type&quot;,x=NULL,fill=NULL)+
+  scale_x_continuous(labels = label_percent(),limits=c(0,0.19))</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-54-1.png" width="672" /></p>
+<pre class="r"><code>flights_joined %&gt;%
+  #mutate(counted =  fct_lump_prop(tzone,prop=0.01))%&gt;%
+  mutate(counted = tzone) %&gt;%
+  group_by(counted)%&gt;%
+  count(is_late) %&gt;%
+  ungroup(is_late)%&gt;%
+  mutate(prop=n/sum(n))%&gt;%
+  ungroup()%&gt;%
+  filter(is_late==1)%&gt;%
+  select(counted,n,prop)%&gt;%
+  ggplot(aes(y=counted,x=prop,fill=counted))+
+  geom_col(show.legend = FALSE)+
+  geom_text(aes(label=  paste0(signif(prop*100,3),&quot;%&quot;)),hjust=-0.1)+
+  labs(title=&quot;Percentage of Flights that are Late by Timezone Destination&quot;,y=&quot;Timezone Destination&quot;,x=NULL,fill=NULL)+
+  scale_x_continuous(labels = label_percent(),limits=c(0,0.19))</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-55-1.png" width="672" /></p>
+<pre class="r"><code>ggplot(flights_joined,aes(x=lat,fill=is_late))+
+  geom_density(alpha=0.4)+ 
+  #geom_histogram()+
+ labs(title=&quot;Density of Flights Being On Time or Late, by Latitude&quot;,x=&quot;Latitiude&quot;,y=&quot;Density&quot;,fill=&quot;Is Late&quot;)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-56-1.png" width="672" /></p>
+<pre class="r"><code>ggplot(flights_joined,aes(x=lon,fill=is_late))+
+  geom_density(alpha=0.4)+
+   labs(title=&quot;Density of Flights Being On Time or Late, by Longitude&quot;,x=&quot;Longitude&quot;,y=&quot;Density&quot;,fill=&quot;Is Late&quot;)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-57-1.png" width="672" /></p>
+<pre class="r"><code>ggplot(flights_joined,aes(x=alt,fill=is_late))+
+  geom_density(alpha=0.4)+
+   labs(title=&quot;Density of Flights Being On Time or Late, by Altitude&quot;,x=&quot;Altitude&quot;,y=&quot;Density&quot;,fill=&quot;Is Late&quot;)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-58-1.png" width="672" /> There doesn’t seem to be a relationship between the location and if a flight is late or not.</p>
+<p>Next look at the time, hour, minute, hour, day, month. Heatmap of lates over the year? Find any that there abnormally high?</p>
+<pre class="r"><code>p1 &lt;- flights_joined %&gt;% 
+  count(minute) %&gt;%
+  ggplot(aes(x=minute,y=n))+
+  geom_point()+
+  geom_line()+
+  labs(title=&quot;Number of Flights for Minute of Hour&quot;,x=&quot;Minute of Hour&quot;,y=&quot;Count&quot;)+
+  scale_y_continuous(labels = scales::comma)
+
+
+p2 &lt;- flights_joined %&gt;% 
+  group_by(minute)%&gt;%
+  count(is_late) %&gt;%
+  mutate(prop = n/sum(n)) %&gt;%
+  filter(is_late==1)%&gt;%
+  ggplot(aes(x=minute,y=prop))+
+  geom_point(col=&quot;steelblue4&quot;)+
+  geom_line(col=&quot;steelblue4&quot;)+
+  labs(title=&quot;Percentage of Flights that are Late by Minute of Hour&quot;,x=&quot;Minute of Hour&quot;,y=&quot;Percentage&quot;)+
+  #geom_smooth(col=&quot;red&quot;, se=FALSE)+
+      scale_y_continuous(labels=label_percent(),limits=c(0,0.25))
+
+p1 / p2</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-59-1.png" width="672" /></p>
+<pre class="r"><code>p1 &lt;-flights_joined %&gt;% 
+  count(hour) %&gt;%
+  ggplot(aes(x=hour,y=n))+
+  geom_point()+
+  geom_line()+
+  labs(title=&quot;Number of Flights By Hour of Day&quot;,x=&quot;Hour&quot;,y=&quot;Count&quot;)+
+  scale_y_continuous(labels = scales::comma)
+
+
+p2 &lt;- flights_joined %&gt;% 
+  group_by(hour)%&gt;%
+  count(is_late) %&gt;%
+  mutate(prop = n/sum(n)) %&gt;%
+  filter(is_late==1)%&gt;%
+  ggplot(aes(x=hour,y=prop))+
+  geom_point(col=&quot;aquamarine3&quot;)+
+  geom_line(col=&quot;aquamarine3&quot;)+
+  labs(title=&quot;Percenetage of Flights that are Late by Hour of Day&quot;,x=&quot;Hour of Day&quot;,y=&quot;Percentage&quot;)+
+    scale_y_continuous(labels=label_percent(),limits=c(0,0.3))
+
+p1 / p2 </code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-60-1.png" width="672" /> It appears that the later the flight in a day, the more likely it is more the plane will be late.</p>
+<pre class="r"><code>p1 &lt;-flights_joined %&gt;% 
+  mutate(mymonth = month(date(time_hour),label=TRUE) )%&gt;%
+  group_by(mymonth)%&gt;%
+  count() %&gt;%
+  ggplot(aes(x=mymonth,y=n,group=1))+
+  geom_point()+
+  geom_line()+
+  labs(title=&quot;Number of Flights By Month&quot;,x=&quot;Month&quot;,y=&quot;Count&quot;)+
+  scale_y_continuous(labels = scales::comma)
+
+p2 &lt;- flights_joined %&gt;% 
+  #mutate(mymonth = month(date(time_hour)) )%&gt;%
+  mutate(mymonth = month(date(time_hour),label=TRUE) )%&gt;%
+  group_by(mymonth)%&gt;%
+  count(is_late) %&gt;%
+  mutate(prop = n/sum(n)) %&gt;%
+  filter(is_late==1)%&gt;%
+  ungroup()%&gt;%
+  ggplot(aes(x=mymonth,y=prop,group=1))+
+  geom_point(col=&quot;orangered1&quot;)+
+  geom_line(col=&quot;orangered1&quot;)+
+  labs(title=&quot;Percentage of Flights that are Late by Month&quot;,x=&quot;Month&quot;,y=&quot;Percentage&quot;)+
+  scale_y_continuous(labels=label_percent())
+
+p1 / p2</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-61-1.png" width="672" /> February generally sees fewer flights, but this may also be due to the fact it is the shortest month of the year.</p>
+<p>We see that some months have different proportions of flights being late. Most notably, June and July have 25% of their flights arriving late, while during the months of: September, October, and November all have less than 10% of their flights being late.</p>
+<pre class="r"><code>flights_joined %&gt;%
+  group_by(month,day)%&gt;%
+  count()%&gt;%
+  ggplot(aes(x=day,y=n))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(.~month)+
+  labs(title=&quot;Total Number of Flights by Day and Month&quot;,x=&quot;Day&quot;,y=&quot;Count&quot;)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-62-1.png" width="672" /> We can observe the number of flights across the year. We see that on weekdays, there are around 800 flights a day, while on Sunday, there are about 600 flights a day. We also observe a sharp decrease in the number of flights during the 8th-9th February, further research shows that this was the day where New York was struck by a large blizzard, thereby severely restricting the number of flights.</p>
+<p>We also see a regular dip every seven days, this is when the flights are on a Sunday.</p>
+<pre class="r"><code>flights_joined %&gt;%
+  mutate(mymonth = month(date(time_hour),label=TRUE,abbr = FALSE)) %&gt;%
+  group_by(mymonth,day)%&gt;%
+  count(is_late) %&gt;%
+  mutate(prop = n/sum(n))%&gt;%
+  filter(is_late==1)%&gt;%
+  ungroup()%&gt;%
+  ggplot( aes(x=day,y=prop))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(.~mymonth)+
+  theme(strip.background = element_blank(),
+        panel.border = element_blank())+
+  theme_bw()</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-63-1.png" width="672" /></p>
+<p>We see a noticeable day where the proprotion of flights being late was quiet late. This occurred on the 8th March and searching the web shows us that snow fell on New York on that day.</p>
+<pre class="r"><code>p1 &lt;- flights_joined %&gt;% 
+  ggplot(aes(time_hour)) + 
+  geom_freqpoly(binwidth = 86400)+
+  #scale_x_datetime(date_breaks=&quot;1 month&quot;,date_labels = &quot;%b%y&quot;,minor_breaks=NULL)
+  scale_x_datetime(date_breaks = &quot;month&quot;, labels = label_date_short(),minor_breaks=NULL)+
+    labs(title=&quot;Number of Flights by  Day of Year&quot;,x=&quot;Date&quot;,y=&quot;Flights Delayed&quot;)
+
+p2 &lt;- flights_joined %&gt;% 
+  mutate (  mydate = date(time_hour) )%&gt;%
+  group_by(mydate)%&gt;%
+  count(is_late) %&gt;%
+  mutate(prop = n/sum(n))%&gt;%
+  filter(is_late==1)%&gt;%
+  ggplot(aes(x=mydate,y=prop)) + 
+  geom_line()+
+  #geom_smooth(col=&quot;red3&quot;,method=&quot;loess&quot;,formula =  y~x)+
+  scale_x_date(date_breaks = &quot;month&quot;, labels = label_date_short(),minor_breaks=NULL)+
+  scale_y_continuous(labels = label_percent())+
+  labs(title=&quot;Percent of Flights Delayed by Day of Year&quot;,x=&quot;Date&quot;,y=&quot;Flights Delayed&quot;)
+  
+p1/p2</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-64-1.png" width="672" /></p>
+<p>We will now look at weather</p>
+<p>temp dewp humid wind_dir wind_speed precip pressure visib</p>
+<pre class="r"><code>p1 &lt;- flights_joined %&gt;%
+  ggplot(aes(x=temp,fill=is_late))+
+  geom_density(alpha=0.5)
+
+p2 &lt;- flights_joined %&gt;%
+  ggplot(aes(x=dewp,fill=is_late))+
+  geom_density(alpha=0.5)
+
+p3 &lt;- flights_joined %&gt;%
+  ggplot(aes(x=humid,fill=is_late))+
+  geom_density(alpha=0.5)
+
+
+p4 &lt;- flights_joined %&gt;%
+  mutate(rain = case_when(precip &gt; 0  &amp; precip &lt; 0.25   ~ &quot;Light_Precip&quot;,
+                          precip &gt;= 0.25 ~ &quot;Heavy_Precip&quot;,
+                          TRUE  ~ &quot;No_Precip&quot;
+                          )) %&gt;%
+  ggplot(aes(x=rain,fill=is_late))+
+  geom_bar(position = position_fill(),show.legend = FALSE)
+
+
+p1 + p2 + p3 + p4 +  plot_layout(ncol=2,guides = &#39;collect&#39;)+ 
+  plot_annotation(title = &quot;Weather Effects on Flight Punctuality&quot;)</code></pre>
+<pre><code>## Warning: Removed 16 rows containing non-finite values (stat_density).
+
+## Warning: Removed 16 rows containing non-finite values (stat_density).
+
+## Warning: Removed 16 rows containing non-finite values (stat_density).</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-65-1.png" width="672" /></p>
+<p>We see that when the temperatures are high, there are more instances of planes being late.</p>
+<p>A higher dew point means the more water is in the atmosphere, which means it’s harder for the human body to evaporate heat. A higher humidity also leads to there being more</p>
+<pre class="r"><code>p1&lt;-flights_joined %&gt;%
+  ggplot(aes(y=wind_speed,x=is_late,fill=is_late))+
+ # geom_density(alpha=0.5)
+  geom_violin(draw_quantiles= c(0.25,0.5,0.75))
+
+p2 &lt;-flights_joined %&gt;%
+  ggplot(aes(x=wind_dir,fill=is_late))+
+  geom_density(alpha=0.5)
+
+p1 + p2 + plot_layout(guides=&quot;collect&quot;)+plot_annotation(title = &quot;Wind Speed and Wind Direction&quot;)</code></pre>
+<pre><code>## Warning: Removed 73 rows containing non-finite values (stat_ydensity).</code></pre>
+<pre><code>## Warning: Removed 7031 rows containing non-finite values (stat_density).</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-66-1.png" width="672" /></p>
+<pre class="r"><code>flights_joined %&gt;%
+  #filter(visib &lt;10) %&gt;%
+  ggplot(aes(x=visib,fill=is_late))+
+  geom_density(alpha=0.5)+
+  labs(title=&quot;Visibility Effects on Lateness&quot;)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-67-1.png" width="672" /></p>
+<p>We could have two different weather patterns? Good visibility and poor visibility on other days.</p>
+<pre class="r"><code> cor(flights_joined[c(&quot;temp&quot;,&quot;dewp&quot;,&quot;humid&quot;,&quot;precip&quot;,&quot;visib&quot;)],use = &quot;complete.obs&quot;) %&gt;%
+  corrplot(addCoef.col = &quot;black&quot;, number.digits = 2,title = &quot; Weather Correlation Plot&quot;, mar = c(0,0,4,0))</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-68-1.png" width="672" /></p>
+<pre class="r"><code>#flights_joined[c(&quot;temp&quot;,&quot;dewp&quot;,&quot;humid&quot;,&quot;precip&quot;,&quot;visib&quot;,&quot;is_late&quot;)] %&gt;%
+#ggpairs(mapping = aes(color = is_late),columns=c(&quot;temp&quot;,&quot;dewp&quot;,&quot;humid&quot;,&quot;precip&quot;,&quot;visib&quot;))</code></pre>
+<p>We will remove <code>dewp</code> since it is highly correlated with <code>temp</code>.</p>
+<pre class="r"><code> cor(flights_joined[c(&quot;temp&quot;,&quot;dewp&quot;,&quot;humid&quot;,&quot;precip&quot;,&quot;visib&quot;,&quot;month&quot;,&quot;hour&quot;,&quot;lat&quot;,&quot;lon&quot;,&quot;alt&quot;)],use = &quot;complete.obs&quot;) %&gt;%
+  corrplot(addCoef.col = &quot;black&quot;, number.digits = 2,title = &quot; Weather, Time, and Location Correlation Plot&quot;, mar = c(0,0,2,0))</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-70-1.png" width="672" /> We don’t see any linear correlation between these variables such as, weather effects and time or location. We will still drop longitude, latitude, and altitude.</p>
+<p>We look at engine type</p>
+<pre class="r"><code>flights_joined %&gt;%
+  count(engines) %&gt;%
+  mutate(prop = n/sum(n)*100 )</code></pre>
+<pre><code>## # A tibble: 4 x 3
+##   engines      n     prop
+##   &lt;fct&gt;    &lt;int&gt;    &lt;dbl&gt;
+## 1 1         1932  0.696  
+## 2 2       275618 99.3    
+## 3 3            7  0.00252
+## 4 4          133  0.0479</code></pre>
+<pre class="r"><code>flights_joined %&gt;%
+  mutate(  engines =   fct_lump_prop(engines,prop=0.01) )%&gt;%
+  group_by(engines) %&gt;%
+   count(is_late) %&gt;%
+  ungroup(is_late)%&gt;%
+  mutate(prop=n/sum(n))%&gt;%
+  ungroup()%&gt;%
+  filter(is_late==1)</code></pre>
+<pre><code>## # A tibble: 2 x 4
+##   engines is_late     n  prop
+##   &lt;fct&gt;   &lt;fct&gt;   &lt;int&gt; &lt;dbl&gt;
+## 1 2       1       43743 0.159
+## 2 Other   1         318 0.153</code></pre>
+<p>We see that engine size does not make a difference if a plane is late or not</p>
+<pre class="r"><code>flights_joined %&gt;%
+  ggplot(aes(x=seats,fill=is_late))+
+  geom_density(alpha=0.5)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-72-1.png" width="672" /></p>
+<p>We see that for flights with over 100 seats or fewer than 25, these flights tend to more likely be on time than flights with around 25 to 100 seats.</p>
+<pre class="r"><code>flights_joined %&gt;%
+   mutate(   mnfr_year =  as.factor(mnfr_year %/% 5 * 5) ) %&gt;%
+   mutate( mnfr_year  = fct_lump_prop(as.factor(mnfr_year), prop=0.01)) %&gt;%
+  count(mnfr_year)%&gt;%
+  ggplot(aes(x=mnfr_year,y=n))+
+  geom_hline(yintercept = 2777,lty=2,col=&quot;red&quot;)+ # 1% line
+  geom_col()+
+  labs(title=&quot;Count of Engines Manufactured by Year&quot;)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-73-1.png" width="672" /></p>
+<pre class="r"><code>flights_joined %&gt;%
+  #mutate( mnfr_year = as.factor(mnfr_year)) %&gt;%
+  # mutate( mnfr_year  = fct_lump_prop(as.factor(mnfr_year), prop=0.01)) %&gt;%
+    mutate(   mnfr_year =  as.factor((mnfr_year %/% 5) * 5) ) %&gt;%
+  mutate( mnfr_year  = fct_lump_prop(as.factor(mnfr_year), prop=0.01)) %&gt;%
+  group_by(mnfr_year)%&gt;%
+  count(is_late) %&gt;%
+  ungroup(is_late)%&gt;%
+  mutate(prop=n/sum(n))%&gt;%
+  ungroup()%&gt;%
+  filter(is_late==1)%&gt;%
+
+ggplot(aes(x=mnfr_year,y=prop))+
+  geom_col()+
+  geom_text(aes(label=  paste0(signif(prop*100,3),&quot;%&quot;), vjust=-.1  ))+
+  scale_y_continuous(labels = label_percent() )+
+  geom_hline(yintercept = 0.159,col=&quot;red&quot;,lty=2)+
+  labs(title=&quot;Percent of Engine Manufacturing Being Late by Year&quot;)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-74-1.png" width="672" /></p>
+<pre class="r"><code>flights_joined %&gt;%
+  ggplot(aes(x=dep_delay,fill=is_late))+
+  geom_density(alpha=0.5)</code></pre>
+<p><img src="NYC_Flights_EDA_files/figure-html/unnamed-chunk-75-1.png" width="672" /></p>
+<pre class="r"><code>summary(flights_joined$type)</code></pre>
+<pre><code>##  Fixed wing multi engine Fixed wing single engine               Rotorcraft 
+##                   275679                     1611                      400</code></pre>
+</div>
+<div id="final-model-set" class="section level1">
+<h1><span class="header-section-number">5</span> Final model set</h1>
+<p>We will finally create the dataset for modelling, as well as any changes to be made.</p>
+<ul>
+<li><p><code>carrier</code> will be kept</p></li>
+<li><p><code>tailnum</code> will be used as an id</p></li>
+<li><p><code>origin</code> will be kept</p></li>
+<li><p><code>dest</code> will be kept as id</p></li>
+<li><p><code>engine</code> type will be have it’s factors lumped</p></li>
+<li><p><code>manufacturer</code> will be kept as id</p></li>
+<li><p><code>model</code> will be used as id</p></li>
+<li><p><code>engines</code> will be removed</p></li>
+<li><p><code>engine_type</code> will have it’s factors lumped</p></li>
+<li><p><code>name</code> will be removed</p></li>
+<li><p><code>tzone</code> will have it’s factors lumped</p></li>
+<li><p><code>year</code>, <code>month</code>, <code>day</code>, <code>hour</code>,<code>minute</code> will be dropped.</p></li>
+<li><p><code>distance</code> will be dropped.</p></li>
+<li><p><code>temp</code> , <code>humid</code>, <code>precip</code> and <code>visib</code> will be included.</p></li>
+<li><p><code>mnfr_year</code> will be binned into 5 year bins, and then factor lumped.</p></li>
+<li><p><code>type</code> will be dropped.</p></li>
+</ul>
+<pre class="r"><code>skim(flights_joined)</code></pre>
+<table>
+<caption>Data summary</caption>
+<tbody>
+<tr class="odd">
+<td align="left">Name</td>
+<td align="left">flights_joined</td>
+</tr>
+<tr class="even">
+<td align="left">Number of rows</td>
+<td align="left">277690</td>
+</tr>
+<tr class="odd">
+<td align="left">Number of columns</td>
+<td align="left">34</td>
+</tr>
+<tr class="even">
+<td align="left">_______________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Column type frequency:</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">factor</td>
+<td align="left">12</td>
+</tr>
+<tr class="odd">
+<td align="left">numeric</td>
+<td align="left">21</td>
+</tr>
+<tr class="even">
+<td align="left">POSIXct</td>
+<td align="left">1</td>
+</tr>
+<tr class="odd">
+<td align="left">________________________</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">Group variables</td>
+<td align="left">None</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: factor</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">ordered</th>
+<th align="right">n_unique</th>
+<th align="left">top_counts</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">carrier</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">16</td>
+<td align="left">UA: 56489, B6: 52897, EV: 50868, DL: 47356</td>
+</tr>
+<tr class="even">
+<td align="left">tailnum</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">3316</td>
+<td align="left">N71: 462, N25: 420, N35: 402, N29: 400</td>
+</tr>
+<tr class="odd">
+<td align="left">origin</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+<td align="left">EWR: 111464, JFK: 92834, LGA: 73392</td>
+</tr>
+<tr class="even">
+<td align="left">dest</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">104</td>
+<td align="left">LAX: 15341, ATL: 14330, BOS: 13524, MCO: 13071</td>
+</tr>
+<tr class="odd">
+<td align="left">is_late</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">2</td>
+<td align="left">0: 233629, 1: 44061</td>
+</tr>
+<tr class="even">
+<td align="left">type</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+<td align="left">Fix: 275679, Fix: 1611, Rot: 400</td>
+</tr>
+<tr class="odd">
+<td align="left">manufacturer</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">35</td>
+<td align="left">BOE: 81896, EMB: 63210, AIR: 46624, AIR: 40477</td>
+</tr>
+<tr class="even">
+<td align="left">model</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">127</td>
+<td align="left">A32: 45159, EMB: 26353, ERJ: 23359, 737: 13703</td>
+</tr>
+<tr class="odd">
+<td align="left">engines</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">4</td>
+<td align="left">2: 275618, 1: 1932, 4: 133, 3: 7</td>
+</tr>
+<tr class="even">
+<td align="left">engine_type</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">6</td>
+<td align="left">Tur: 234949, Tur: 40552, Rec: 1696, Tur: 400</td>
+</tr>
+<tr class="odd">
+<td align="left">name</td>
+<td align="right">6096</td>
+<td align="right">0.98</td>
+<td align="left">FALSE</td>
+<td align="right">100</td>
+<td align="left">Los: 15341, Har: 14330, Gen: 13524, Orl: 13071</td>
+</tr>
+<tr class="even">
+<td align="left">tzone</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="left">FALSE</td>
+<td align="right">8</td>
+<td align="left">Ame: 157897, Ame: 55498, Ame: 43108, Ame: 9822</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">p0</th>
+<th align="right">p25</th>
+<th align="right">p50</th>
+<th align="right">p75</th>
+<th align="right">p100</th>
+<th align="left">hist</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">year</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">2013.00</td>
+<td align="right">0.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="right">2013.00</td>
+<td align="left">▁▁▇▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">month</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">6.56</td>
+<td align="right">3.40</td>
+<td align="right">1.00</td>
+<td align="right">4.00</td>
+<td align="right">7.00</td>
+<td align="right">10.00</td>
+<td align="right">12.00</td>
+<td align="left">▇▆▆▆▇</td>
+</tr>
+<tr class="odd">
+<td align="left">day</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">15.69</td>
+<td align="right">8.75</td>
+<td align="right">1.00</td>
+<td align="right">8.00</td>
+<td align="right">16.00</td>
+<td align="right">23.00</td>
+<td align="right">31.00</td>
+<td align="left">▇▇▇▇▆</td>
+</tr>
+<tr class="even">
+<td align="left">dep_delay</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">13.09</td>
+<td align="right">40.44</td>
+<td align="right">-43.00</td>
+<td align="right">-5.00</td>
+<td align="right">-1.00</td>
+<td align="right">11.00</td>
+<td align="right">1301.00</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">flight</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1857.28</td>
+<td align="right">1620.68</td>
+<td align="right">1.00</td>
+<td align="right">507.00</td>
+<td align="right">1345.00</td>
+<td align="right">3052.00</td>
+<td align="right">8500.00</td>
+<td align="left">▇▂▂▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">distance</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">1073.90</td>
+<td align="right">763.60</td>
+<td align="right">80.00</td>
+<td align="right">529.00</td>
+<td align="right">937.00</td>
+<td align="right">1416.00</td>
+<td align="right">4983.00</td>
+<td align="left">▇▃▂▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">hour</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">13.15</td>
+<td align="right">4.70</td>
+<td align="right">5.00</td>
+<td align="right">9.00</td>
+<td align="right">13.00</td>
+<td align="right">17.00</td>
+<td align="right">23.00</td>
+<td align="left">▇▆▆▇▃</td>
+</tr>
+<tr class="even">
+<td align="left">minute</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">26.03</td>
+<td align="right">19.33</td>
+<td align="right">0.00</td>
+<td align="right">6.00</td>
+<td align="right">29.00</td>
+<td align="right">43.00</td>
+<td align="right">59.00</td>
+<td align="left">▇▃▆▃▅</td>
+</tr>
+<tr class="odd">
+<td align="left">temp</td>
+<td align="right">16</td>
+<td align="right">1.00</td>
+<td align="right">57.04</td>
+<td align="right">17.89</td>
+<td align="right">10.94</td>
+<td align="right">42.08</td>
+<td align="right">57.20</td>
+<td align="right">71.96</td>
+<td align="right">100.04</td>
+<td align="left">▁▇▇▇▂</td>
+</tr>
+<tr class="even">
+<td align="left">dewp</td>
+<td align="right">16</td>
+<td align="right">1.00</td>
+<td align="right">41.63</td>
+<td align="right">19.33</td>
+<td align="right">-9.94</td>
+<td align="right">26.06</td>
+<td align="right">42.98</td>
+<td align="right">57.92</td>
+<td align="right">78.08</td>
+<td align="left">▁▆▇▇▆</td>
+</tr>
+<tr class="odd">
+<td align="left">humid</td>
+<td align="right">16</td>
+<td align="right">1.00</td>
+<td align="right">59.44</td>
+<td align="right">19.64</td>
+<td align="right">12.74</td>
+<td align="right">43.92</td>
+<td align="right">57.50</td>
+<td align="right">74.98</td>
+<td align="right">100.00</td>
+<td align="left">▂▇▇▆▅</td>
+</tr>
+<tr class="even">
+<td align="left">wind_dir</td>
+<td align="right">7031</td>
+<td align="right">0.97</td>
+<td align="right">201.73</td>
+<td align="right">104.86</td>
+<td align="right">0.00</td>
+<td align="right">130.00</td>
+<td align="right">220.00</td>
+<td align="right">290.00</td>
+<td align="right">360.00</td>
+<td align="left">▆▃▆▇▇</td>
+</tr>
+<tr class="odd">
+<td align="left">wind_speed</td>
+<td align="right">73</td>
+<td align="right">1.00</td>
+<td align="right">10.99</td>
+<td align="right">5.54</td>
+<td align="right">0.00</td>
+<td align="right">6.90</td>
+<td align="right">10.36</td>
+<td align="right">13.81</td>
+<td align="right">42.58</td>
+<td align="left">▆▇▂▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">precip</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">0.00</td>
+<td align="right">0.03</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">1.21</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">pressure</td>
+<td align="right">29646</td>
+<td align="right">0.89</td>
+<td align="right">1017.92</td>
+<td align="right">7.42</td>
+<td align="right">983.80</td>
+<td align="right">1012.90</td>
+<td align="right">1017.70</td>
+<td align="right">1022.90</td>
+<td align="right">1042.10</td>
+<td align="left">▁▁▇▆▁</td>
+</tr>
+<tr class="even">
+<td align="left">visib</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">9.28</td>
+<td align="right">1.99</td>
+<td align="right">0.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="left">▁▁▁▁▇</td>
+</tr>
+<tr class="odd">
+<td align="left">mnfr_year</td>
+<td align="right">5137</td>
+<td align="right">0.98</td>
+<td align="right">2001.40</td>
+<td align="right">6.40</td>
+<td align="right">1956.00</td>
+<td align="right">1999.00</td>
+<td align="right">2002.00</td>
+<td align="right">2006.00</td>
+<td align="right">2013.00</td>
+<td align="left">▁▁▁▆▇</td>
+</tr>
+<tr class="even">
+<td align="left">seats</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">137.53</td>
+<td align="right">71.73</td>
+<td align="right">2.00</td>
+<td align="right">55.00</td>
+<td align="right">149.00</td>
+<td align="right">189.00</td>
+<td align="right">450.00</td>
+<td align="left">▆▇▆▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">lat</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">35.63</td>
+<td align="right">6.25</td>
+<td align="right">18.01</td>
+<td align="right">30.49</td>
+<td align="right">36.08</td>
+<td align="right">41.41</td>
+<td align="right">61.17</td>
+<td align="left">▂▆▇▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">lon</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">-89.59</td>
+<td align="right">15.89</td>
+<td align="right">-157.92</td>
+<td align="right">-95.34</td>
+<td align="right">-83.35</td>
+<td align="right">-80.15</td>
+<td align="right">-64.97</td>
+<td align="left">▁▁▂▅▇</td>
+</tr>
+<tr class="odd">
+<td align="left">alt</td>
+<td align="right">0</td>
+<td align="right">1.00</td>
+<td align="right">578.67</td>
+<td align="right">986.83</td>
+<td align="right">3.00</td>
+<td align="right">26.00</td>
+<td align="right">285.00</td>
+<td align="right">748.00</td>
+<td align="right">6602.00</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: POSIXct</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">min</th>
+<th align="left">max</th>
+<th align="left">median</th>
+<th align="right">n_unique</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">time_hour</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">2013-01-01 05:00:00</td>
+<td align="left">2013-12-30 18:00:00</td>
+<td align="left">2013-07-04 08:00:00</td>
+<td align="right">6884</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>full_flights = 
+flights_joined %&gt;%
+  na.omit() %&gt;%
+  select(-year,-month,-day,-hour,-minute,-type,-manufacturer,-model,-engines,-distance,-dewp,-name,-pressure,-dest,-wind_dir,-wind_speed,-humid) %&gt;%
+  mutate(   mnfr_year =  as.factor( (mnfr_year %/% 5) * 5),
+            mnfr_year  = fct_lump_prop(as.factor(mnfr_year), prop=0.01 ),
+            engine_type = fct_lump_prop(engine_type, prop=0.01),
+            tzone = fct_lump_prop(tzone, prop=0.01),
+            dep_date = as.Date(time_hour)
+            )
+
+saveRDS(full_flights,file=&quot;Cleaned_Full_Flights.rds&quot;)</code></pre>
+<pre class="r"><code>skim(full_flights)</code></pre>
+<table>
+<caption>Data summary</caption>
+<tbody>
+<tr class="odd">
+<td align="left">Name</td>
+<td align="left">full_flights</td>
+</tr>
+<tr class="even">
+<td align="left">Number of rows</td>
+<td align="left">232412</td>
+</tr>
+<tr class="odd">
+<td align="left">Number of columns</td>
+<td align="left">19</td>
+</tr>
+<tr class="even">
+<td align="left">_______________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Column type frequency:</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">Date</td>
+<td align="left">1</td>
+</tr>
+<tr class="odd">
+<td align="left">factor</td>
+<td align="left">7</td>
+</tr>
+<tr class="even">
+<td align="left">numeric</td>
+<td align="left">10</td>
+</tr>
+<tr class="odd">
+<td align="left">POSIXct</td>
+<td align="left">1</td>
+</tr>
+<tr class="even">
+<td align="left">________________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Group variables</td>
+<td align="left">None</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: Date</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">min</th>
+<th align="left">max</th>
+<th align="left">median</th>
+<th align="right">n_unique</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">dep_date</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">2013-01-01</td>
+<td align="left">2013-12-30</td>
+<td align="left">2013-07-06</td>
+<td align="right">364</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: factor</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">ordered</th>
+<th align="right">n_unique</th>
+<th align="left">top_counts</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">carrier</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">16</td>
+<td align="left">UA: 46705, B6: 43035, EV: 42735, DL: 39866</td>
+</tr>
+<tr class="even">
+<td align="left">tailnum</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">3224</td>
+<td align="left">N71: 404, N25: 371, N35: 353, N35: 352</td>
+</tr>
+<tr class="odd">
+<td align="left">origin</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+<td align="left">EWR: 91968, JFK: 77973, LGA: 62471</td>
+</tr>
+<tr class="even">
+<td align="left">is_late</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">2</td>
+<td align="left">0: 199198, 1: 33214</td>
+</tr>
+<tr class="odd">
+<td align="left">mnfr_year</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">7</td>
+<td align="left">200: 85189, 200: 56473, 199: 38295, 199: 21498</td>
+</tr>
+<tr class="even">
+<td align="left">engine_type</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+<td align="left">Tur: 197038, Tur: 33878, Oth: 1496</td>
+</tr>
+<tr class="odd">
+<td align="left">tzone</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">FALSE</td>
+<td align="right">6</td>
+<td align="left">Ame: 134986, Ame: 47286, Ame: 37241, Ame: 8455</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">p0</th>
+<th align="right">p25</th>
+<th align="right">p50</th>
+<th align="right">p75</th>
+<th align="right">p100</th>
+<th align="left">hist</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">dep_delay</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">11.62</td>
+<td align="right">37.99</td>
+<td align="right">-43.00</td>
+<td align="right">-5.00</td>
+<td align="right">-2.00</td>
+<td align="right">10.00</td>
+<td align="right">1301.00</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">flight</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">1872.10</td>
+<td align="right">1625.73</td>
+<td align="right">1.00</td>
+<td align="right">505.00</td>
+<td align="right">1394.00</td>
+<td align="right">3305.00</td>
+<td align="right">6181.00</td>
+<td align="left">▇▅▁▃▁</td>
+</tr>
+<tr class="odd">
+<td align="left">temp</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">56.99</td>
+<td align="right">18.06</td>
+<td align="right">10.94</td>
+<td align="right">42.08</td>
+<td align="right">57.02</td>
+<td align="right">71.96</td>
+<td align="right">100.04</td>
+<td align="left">▁▇▇▇▂</td>
+</tr>
+<tr class="even">
+<td align="left">humid</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">56.33</td>
+<td align="right">18.08</td>
+<td align="right">13.00</td>
+<td align="right">42.48</td>
+<td align="right">54.51</td>
+<td align="right">69.53</td>
+<td align="right">100.00</td>
+<td align="left">▂▇▇▆▂</td>
+</tr>
+<tr class="odd">
+<td align="left">precip</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">0.00</td>
+<td align="right">0.01</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.00</td>
+<td align="right">0.53</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">visib</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">9.58</td>
+<td align="right">1.46</td>
+<td align="right">0.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="right">10.00</td>
+<td align="left">▁▁▁▁▇</td>
+</tr>
+<tr class="odd">
+<td align="left">seats</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">136.82</td>
+<td align="right">71.96</td>
+<td align="right">2.00</td>
+<td align="right">55.00</td>
+<td align="right">149.00</td>
+<td align="right">189.00</td>
+<td align="right">400.00</td>
+<td align="left">▆▅▇▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">lat</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">36.02</td>
+<td align="right">5.76</td>
+<td align="right">21.32</td>
+<td align="right">32.73</td>
+<td align="right">36.10</td>
+<td align="right">41.41</td>
+<td align="right">61.17</td>
+<td align="left">▃▆▇▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">lon</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">-90.15</td>
+<td align="right">15.70</td>
+<td align="right">-157.92</td>
+<td align="right">-95.34</td>
+<td align="right">-84.22</td>
+<td align="right">-80.15</td>
+<td align="right">-68.83</td>
+<td align="left">▁▁▂▃▇</td>
+</tr>
+<tr class="even">
+<td align="left">alt</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">590.66</td>
+<td align="right">995.14</td>
+<td align="right">3.00</td>
+<td align="right">26.00</td>
+<td align="right">313.00</td>
+<td align="right">748.00</td>
+<td align="right">6602.00</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: POSIXct</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="left">min</th>
+<th align="left">max</th>
+<th align="left">median</th>
+<th align="right">n_unique</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">time_hour</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="left">2013-01-01 05:00:00</td>
+<td align="left">2013-12-30 18:00:00</td>
+<td align="left">2013-07-06 18:00:00</td>
+<td align="right">6344</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+
+<script>
+$(document).ready(function ()  {
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

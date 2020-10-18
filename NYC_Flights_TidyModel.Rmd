@@ -622,7 +622,7 @@ fake_prediction  %>%
    theme_bw()
 ```
 
-We see observe that the departure delay is extremely important in both models, and we also see how different carriers have different probabilities of being late. We also notice that there is very little differences between the origin of flight and the engine type of the aircraft.
+We observe that the departure delay is extremely important in both models, and we also see how different carriers have different probabilities of being late. We also notice that there is very little differences between the origin of flight and the engine type of the aircraft.
 
 
 We could further see how abnormal weather events may impact the arrival time, we could even try to see how the the day-by-day probabilities are affected if we fix everything else. 

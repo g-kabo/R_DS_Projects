@@ -4,16 +4,22 @@ author: "Me"
 date: "14/10/2020"
 output:
   html_document:
-    toc: true
-    toc_float: true
+    toc: yes
+    toc_float: yes
     df_print: kable
+    number_sections: yes
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,cache = TRUE)
 ```
 
-```{r}
+
+We will investigate the OKCupid Data and see if we can predict if a user is a STEM major or not, based on the data provided. First we will perform some EDA to look at the data, and then we will use the Tidymodels framework to easily create machine learning models. If you wish to view the results, use the contents tab on the left to skip to the **Performance on Test Set** section.
+
+
+
+```{r, results='hide'}
 library(modeldata)
 library(tidyverse)
 library(skimr)
@@ -199,9 +205,6 @@ okc %>%
 
 
 
-
-
-
 ```{r}
 okc %>%
   na.omit() %>%
@@ -221,25 +224,7 @@ okc %>%
   guides(fill=guide_legend(ncol=2))
 ```
 
-```{r}
-okc %>%
-  na.omit() %>%
-  filter(height > 25) %>%
-  mutate(diet = str_remove(diet,"strictly"),
-         diet = str_remove(diet,"mostly"),
-         diet = str_remove(diet, " "),
-         diet = str_to_title(diet),
-  )%>%
-    ggplot(aes(x=diet,y=height,fill=interaction(diet,Class) )   ) + #Use fill=interaction(Class,diet) for better colouring - doesn't work here due to NAs
-    #geom_violin(  draw_quantiles = c(.25,.5,.75))+
-  geom_boxplot()+
-    theme_minimal()+
-   labs(title="Height Difference Majors Across Diets",subtitle ="Left is STEM, Right is Others" ,x="Diet",y="Height (Inches)")+
-   scale_fill_manual(values=c("darkslategray4","firebrick4","palegreen4","slateblue4","royalblue3","darkgoldenrod4",
-              "darkslategray1","firebrick2","palegreen1","slateblue2","royalblue1","darkgoldenrod1"))+
-  theme(legend.position = "right")+
-  guides(fill=guide_legend(ncol=2))
-```
+
 ```{r}
 okc %>%
   na.omit() %>%
@@ -264,7 +249,7 @@ okc %>%
 
 
 
-Seeing combination of diet and class has the tallest individuals on average.
+Seeing which combination of diet and class has the tallest individuals on average.
 
 ```{r}
 okc %>%
@@ -333,13 +318,14 @@ okc %>%
   geom_col(position = position_stack() )+
   geom_text(aes(label=  paste0(  round(prop*100,1),"%" ) ), position = position_stack(vjust = 0.5)  )+
   scale_y_continuous(labels = scales::percent_format())+
-  labs(title="Major Difference Between Location",x="Location",y="Percent",fill="Class:")+
+  labs(title="Major Difference Between Top 99% of Most Populated Locations",x="Location",y="Percent",fill="Class:")+
   theme_minimal()+
   theme(legend.position = "top",
         panel.grid.major.x = element_blank() )+
   coord_flip()+
   guides(fill = guide_legend(reverse=TRUE))
 ```
+
 ```{r}
 okc %>%
   #filter( !is.na(diet)) %>%
@@ -355,7 +341,7 @@ okc %>%
   geom_col(position = position_stack() )+
   geom_text(aes(label=  paste0(  round(prop*100,1),"%" ) ), position = position_stack(vjust = 0.5)  )+
   scale_y_continuous(labels = scales::percent_format())+
-  labs(title="Major Difference Between Location",x="Location",y="Percent",fill="Class:")+
+  labs(title="Major Difference Between Top 95% of Most Populated Locations",x="Location",y="Percent",fill="Class:")+
   theme_minimal()+
   theme(legend.position = "top",
         panel.grid.major.x = element_blank() )+
@@ -475,8 +461,7 @@ paste("Time Taken:",end-start)
 
 ```{r}
 tree_res %>%
-  collect_metrics() %>%
-  rmarkdown::paged_table()
+  collect_metrics()
 
 
 
@@ -702,7 +687,7 @@ predict(final_tree,new_data = okc_test)   %>%
 
 ```
 
-In terms of roc_auc and accuracy, the decision tree is superior that the logistic model.
+In terms of roc_auc and accuracy, the decision tree is superior over the logistic model.
 
 
 ```{r}
@@ -744,7 +729,7 @@ predict(final_tree,new_data = okc_test)   %>%
 
 However, upon further inspection, we see that the tree is just predicting `other` many times. The base line is 
 ```{r}
-(12546+31)/nrow(okc_test) *100
+paste0("Base Accuracy: ",round((12546+31)/nrow(okc_test) *100,1),"%")
 ```
 
 So in-fact, we did worse than always predicting the most common occurrence in our training set, which was to predict that someone was not a STEM major.
