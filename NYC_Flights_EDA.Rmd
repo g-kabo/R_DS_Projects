@@ -78,7 +78,7 @@ ggplot() +
   geom_map(data = world, map = world,aes(x=long,y=lat,map_id = region),color = "black", fill = "lightgray")+
   geom_point(data=airports,mapping=aes(x=lon,y=lat,col=alt))+
   scale_colour_viridis_c(option="C")+
-  theme_dark()
+  theme_dark()+labs(title="Location of Airports")
 ```
 
 We mostly have airports in the US, with some in Asia, though we notice that there is a supposed destination in the middle of the Barents Sea, North of Russia!
@@ -121,7 +121,8 @@ weather %>%
   left_join(airports,by=c("origin"="faa")) %>%
   ggplot(aes(x=month,y=avg_wind_dir,col=origin))+
   geom_point()+
-  geom_line()
+  geom_line()+
+  labs(title="Average Wind Direction by Month")
 ```
 
 
@@ -133,7 +134,8 @@ weather %>%
   left_join(airports,by=c("origin"="faa")) %>%
   ggplot(aes(x=month,y=avg_wind_speed,col=origin))+
   geom_point()+
-  geom_line()
+  geom_line()+
+    labs(title="Average Wind Speed by Month")
 ```
 
 
@@ -162,7 +164,8 @@ weather %>%
   left_join(airports,by=c("origin"="faa")) %>%
   ggplot(aes(x=month,y=wind_speed,fill=origin))+
   geom_boxplot()+
-  facet_wrap(.~origin,nrow=3)
+  facet_wrap(.~origin,nrow=3)+
+  labs(title="Wind Speed by Month")
 ```
 
 We notice a clear outlier! There was a wind speed recorded in excess of 1000mph! The highest wind speed ever recorded  was 253 mph during severe
@@ -194,7 +197,8 @@ weather %>%
   left_join(airports,by=c("origin"="faa")) %>%
   ggplot(aes(x=month,y=wind_speed,fill=origin))+
   geom_boxplot()+
-  facet_wrap(.~origin,nrow=3)
+  facet_wrap(.~origin,nrow=3)+
+  labs(title="Corrected Wind Speed by Month ")
 ```
 ```{r}
 weather %>%
@@ -205,7 +209,9 @@ weather %>%
   left_join(airports,by=c("origin"="faa")) %>%
   ggplot(aes(x=hour,y=wind_speed,fill=origin))+
   geom_boxplot()+
-  facet_wrap(.~origin,nrow=3)
+  facet_wrap(.~origin,nrow=3)+
+  +
+  labs(title="Wind Speed by Hour of Day")
 ```
 ```{r}
 weather %>%
@@ -217,7 +223,8 @@ weather %>%
   left_join(airports,by=c("origin"="faa")) %>%
   ggplot(aes(x=hour,y=wind_speed,fill=origin))+
   geom_boxplot()+
-  facet_wrap(month~.,nrow=3)
+  facet_wrap(month~.,nrow=3)+
+  labs(title="Wind Speed by Hour of Month")
 ```
 
 ## Planes Data
@@ -252,7 +259,8 @@ planes %>%
 planes %>%
   mutate(across(where(is.character), as.factor)) %>%
   ggplot(aes(x=year,y=seats,col=engine))+
-  geom_point(size=3,alpha=.2)
+  geom_point(size=3,alpha=.2)+
+  labs(title="Manufacturing Year and Seat Count of Planes by Engine Type")
 
 ```
 ```{r}
@@ -777,7 +785,8 @@ flights_joined %>%
   facet_wrap(.~mymonth)+
   theme(strip.background = element_blank(),
         panel.border = element_blank())+
-  theme_bw()
+  theme_bw()+
+  labs(title="Proportion of Late Flights By Day of Month")
 ```
 
 We see a noticeable day where the proprotion of flights being late was quiet late. This occurred on the 8th March and searching the web shows us that snow fell on New York on that day.

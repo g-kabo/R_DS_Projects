@@ -1,5 +1,5 @@
 ---
-title: "US_Flights_Model"
+title: "NYC Flights Model"
 author: "Me"
 date: "14/10/2020"
 output:
