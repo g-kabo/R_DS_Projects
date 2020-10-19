@@ -1,7 +1,5 @@
 ---
 title: "NYC Flights - Initial Cleaning and Investigation"
-author: "Me"
-date: "02/10/2020"
 output:
   html_document:
     toc: true
@@ -210,7 +208,6 @@ weather %>%
   ggplot(aes(x=hour,y=wind_speed,fill=origin))+
   geom_boxplot()+
   facet_wrap(.~origin,nrow=3)+
-  +
   labs(title="Wind Speed by Hour of Day")
 ```
 ```{r}
@@ -1044,4 +1041,7 @@ saveRDS(full_flights,file="Cleaned_Full_Flights.rds")
 ```{r}
 skim(full_flights)
 ```
+
+With this we finally have a dataset that is ready to be modelled on. The other file will continue with modelling.
+
 

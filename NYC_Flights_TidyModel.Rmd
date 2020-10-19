@@ -1,7 +1,5 @@
 ---
 title: "NYC Flights Model"
-author: "Me"
-date: "14/10/2020"
 output:
   html_document:
     toc: true
