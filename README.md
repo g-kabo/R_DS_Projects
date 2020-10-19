@@ -1,12 +1,17 @@
-# R_DS_Projects
+# R DS Mini Projects
 
-This is a repo that contains my personal data science / machine learning projects on data sets in R
+This is a repo that contains my personal data science / machine learning projects on data sets in R.
 
 The links to the actual projects will be posted as links to rpubs below.
 
 ## NYC 2013 Flights
 
-link:
+links 
+
+Part 1 focuses on the EDA process and Part 2 focuses on the Modelling Section.
+
+Part 1: https://rpubs.com/g_kabo/NYC_Flight_Data_Part_1
+Part 2: https://rpubs.com/g_kabo/NYC_Flight_DataPart2
 
 Predicting if a flight will arrive 30 minutes late.
 
