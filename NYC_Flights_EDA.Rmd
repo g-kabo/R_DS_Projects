@@ -76,7 +76,7 @@ ggplot() +
   geom_map(data = world, map = world,aes(x=long,y=lat,map_id = region),color = "black", fill = "lightgray")+
   geom_point(data=airports,mapping=aes(x=lon,y=lat,col=alt))+
   scale_colour_viridis_c(option="C")+
-  theme_dark()+labs(title="Location of Airports")
+  theme_dark()+labs(title="Location of Airports",fill="Altitude")
 ```
 
 We mostly have airports in the US, with some in Asia, though we notice that there is a supposed destination in the middle of the Barents Sea, North of Russia!
